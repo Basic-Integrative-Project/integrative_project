@@ -1,0 +1,129 @@
+{
+  "name": "Gmail Unread Viewer",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "oauth-start",
+        "options": {}
+      },
+      "id": "5fe2b64e-cf18-45c3-992f-9cc19387e287",
+      "name": "OAuth Start",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        128
+      ],
+      "webhookId": "e987aba7-5984-466e-96a4-3dc8cac8f779"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": true,
+        "additionalFields": {
+          "labelIds": [
+            "UNREAD",
+            "INBOX"
+          ]
+        }
+      },
+      "id": "962140a4-eef1-4588-8339-0a65bfab0846",
+      "name": "Get Unread",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        368,
+        128
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "o1qfBuQYiLvCfU6C",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "return items.map(item => {\n  const json = item.json;\n\n  // Extraer campos principales\n  const id = json.id || '';\n  const subject = json.subject || '';\n  const date = json.date || '';\n  const text = json.text || '';\n\n  // Extraer el remitente (from)\n  let from = '';\n  if (json.from?.value && json.from.value.length > 0) {\n    const f = json.from.value[0];\n    from = f.name ? `${f.name} <${f.address}>` : f.address;\n  }\n\n  // Extraer destinatarios (to) si quieres\n  let to = '';\n  if (json.to?.value && json.to.value.length > 0) {\n    to = json.to.value.map(t => t.name ? `${t.name} <${t.address}>` : t.address).join(', ');\n  }\n\n  return {\n    json: {\n      id: id,\n      from: from,\n      to: to,\n      subject: subject,\n      text: text,\n      date: date\n    }\n  };\n});\n"
+      },
+      "id": "35ca78de-847e-40d0-a37f-e0cb7df4c474",
+      "name": "Format Emails",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        672,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "path": "get-mails",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "fe00f1a1-3274-45ce-857f-3a8aecfc13bd",
+      "name": "Get Mails",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        336
+      ],
+      "webhookId": "f68d8161-ce82-486f-826d-07563ca1fe39"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "OAuth Start": {
+      "main": [
+        [
+          {
+            "node": "Get Unread",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Mails": {
+      "main": [
+        [
+          {
+            "node": "Get Unread",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Unread": {
+      "main": [
+        [
+          {
+            "node": "Format Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Emails": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "eda28469-dce6-4616-b140-1b4566e0b4d2",
+  "meta": {
+    "instanceId": "f8f37e148fcc54dfa91b3347b3ea212a6329b8bee2337c5032f8b1dd337c073f"
+  },
+  "id": "4ABCIPTdBjMA7iav",
+  "tags": []
+}
