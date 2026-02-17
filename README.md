@@ -25,3 +25,5 @@ INTEGRATIVE_PROJECT
   |_.gitignore
 
 ```
+
+## Dependencias Ollama (clasificador de correos)
