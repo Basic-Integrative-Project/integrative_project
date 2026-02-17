@@ -80,7 +80,7 @@
             }
 
             window.location.href =
-                "http://localhost:5678/webhook/oauth-start?uid=" +
+                "https://n8n.andrescortes.dev/workflow/uT2JDObbkiM5D5n8" +
                 encodeURIComponent(currentUser.uid) +
                 "&email=" +
                 encodeURIComponent(currentUser.email);
@@ -95,7 +95,7 @@
 
             try {
                 const res = await fetch(
-                    "http://localhost:5678/webhook/get-mails?uid=" +
+                    "https://n8n.andrescortes.dev/workflow/uT2JDObbkiM5D5n8" +
                     encodeURIComponent(currentUser.uid)
                 );
 

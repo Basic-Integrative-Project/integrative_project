@@ -45,7 +45,7 @@ document.getElementById("connectGmail").addEventListener("click", () => {
     }
 
     window.location.href =
-        "http://localhost:5678/webhook/oauth-start?uid=" +
+        "https://n8n.andrescortes.dev/webhook/oauth-start?uid=" +
         encodeURIComponent(currentUser.uid) +
         "&email=" +
         encodeURIComponent(currentUser.email);
@@ -60,19 +60,39 @@ async function classifyEmail(mail) {
             body: JSON.stringify({ subject: mail.subject, text: mail.text })
         });
 
+        // 👀 VERIFICA ESTO
+        console.log("Status:", res.status);
+        console.log("OK:", res.ok);
+        
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+
         const data = await res.json();
+        console.log("Respuesta del servidor:", data); // 👀 VERIFICA ESTO
+        
         return data.tag || "importantes";
+        
     } catch (err) {
         console.error("Error clasificando correo:", err);
-
-        // Fallback local rápido
+        
+        // Fallback mejorado con logs
         const s = (mail.subject + " " + mail.text).toLowerCase();
-        if (/(reunión|reunion|call|meeting)/.test(s)) return "reunion";
-        if (/(enfermedad|licencia|incapacidad|sick)/.test(s)) return "incapacidades";
+        console.log("Texto a analizar:", s); // 👀 VERIFICA ESTO
+        
+        if (/(reunión|reunion|call|meeting)/.test(s)) {
+            console.log("→ Detectado: reunion");
+            return "reunion";
+        }
+        if (/(enfermedad|licencia|incapacidad|sick)/.test(s)) {
+            console.log("→ Detectado: incapacidades");
+            return "incapacidades";
+        }
+        
+        console.log("→ Default: importantes");
         return "importantes";
     }
 }
-
 // 📥 OBTENER CORREOS DESDE N8N y clasificar
 document.getElementById("getEmails").addEventListener("click", async () => {
     if (!currentUser) {
@@ -82,7 +102,7 @@ document.getElementById("getEmails").addEventListener("click", async () => {
 
     try {
         const res = await fetch(
-            "http://localhost:5678/webhook/get-mails?uid=" +
+            "https://n8n.andrescortes.dev/webhook/get-mails?uid=" +
             encodeURIComponent(currentUser.uid)
         );
 
