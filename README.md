@@ -35,6 +35,9 @@ Elimina packge.json y packge-lock.json e instala las dependencias necesarias.
 4. Escribe en la terminal npm i node-fetch
 5. por ultimo escribe node server.js para abrir el servidor
 
+### importante
+Si genera un error de type modul simplemente abrir el package.json y copiar "type" : "modul" dentro del arreglo.
+
 ## Iniciar el n8n (servidor)
 1. Dirigite al n8n y presiona publish (verifica que el modulo Get Mails tenga tenga en Responde data All entries)
 
