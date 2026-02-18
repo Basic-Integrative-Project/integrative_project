@@ -1,10 +1,20 @@
-// Seleccionamos el cuerpo de la tabla.
+// Seleccionamos los elementos del DOM.
 const tbody = document.getElementById("lista-coders");
+const formBusqueda = document.getElementById("form-busqueda");
+const inputDocumento = document.getElementById("input-documento");
 
-// Obtener todos los coders.
-async function getCoders() {
+// Función para obtener los datos desde el servidor (acepta un documento opcional).
+async function getCoders(documento = "") {
     try {
-        const response = await fetch("/api/coders");
+        // Si hay un documento, lo agregamos como parámetro en la URL.
+        let url = "/api/coders";
+        if (documento) {
+            url += `?document=${documento}`;
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Error en la respuesta de la red");
+        
         const coders = await response.json();
         renderCoders(coders);
     } catch (error) {
@@ -12,11 +22,19 @@ async function getCoders() {
     }
 }
 
-// Dibujar la tabla.
+// Función para dibujar las filas en la tabla.
 function renderCoders(codersList) {
     tbody.innerHTML = "";
+
+    // Si no hay resultados, mostramos un mensaje.
+    if (codersList.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='10' class='text-center'>No se encontraron resultados</td></tr>";
+        return;
+    }
+
     codersList.forEach((coder) => {
         const row = document.createElement("tr");
+
         row.innerHTML = `
             <td>${coder.id}</td>
             <td>${coder.name}</td>
@@ -37,4 +55,17 @@ function renderCoders(codersList) {
     });
 }
 
+// Escuchamos el evento cuando se envía el formulario de búsqueda.
+formBusqueda.addEventListener("submit", (event) => {
+    // Evitamos que la página se recargue.
+    event.preventDefault();
+    
+    // Obtenemos el valor del input.
+    const docValue = inputDocumento.value.trim();
+    
+    // Llamamos a la función de obtener datos con el filtro.
+    getCoders(docValue);
+});
+
+// Carga inicial de todos los datos.
 getCoders();
