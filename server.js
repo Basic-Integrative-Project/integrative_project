@@ -28,7 +28,12 @@ const pool = mysql.createPool({
 app.get("/api/coders", (req, res) => {
     const sql = `
         SELECT 
-            c.id, c.name, c.lastname, c.document, c.email, c.cel, 
+            c.id, 
+            c.name, 
+            c.lastname, 
+            c.document, 
+            c.email, 
+            c.cel, 
             cl.name AS clan, s.name AS shift,
             ROUND((g.module_1 + g.module_2 + g.module_3 + g.module_4) / 4, 1) AS grade
         FROM coders c
