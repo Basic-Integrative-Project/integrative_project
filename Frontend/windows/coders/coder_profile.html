@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    <title>Perfil del Coder</title>
+</head>
+
+<body class="bg-light">
+    <div class="container mt-5">
+        <div id="perfil-container"></div>
+
+        <div class="mt-4 shadow card">
+            <div class="card-body">
+                <h5>Citas del Coder</h5>
+                <table class="table table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Motivo</th>
+                            <th>Profesional</th>
+                            <th>Fecha</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                            <th>Historia</th>
+                        </tr>
+                    </thead>
+                    <tbody id="citas-coder"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="text-center mt-3"><a href="index.html" class="btn btn-secondary">Volver</a></div>
+    </div>
+
+    <div class="modal fade" id="modalCita" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Asignar Cita</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-cita">
+                        <div class="mb-3">
+                            <label class="form-label">Fecha</label>
+                            <input type="date" id="cita-fecha" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Motivo</label>
+                            <input type="text" id="cita-motivo" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Profesional (Asesor)</label>
+                            <input type="text" id="cita-profesional" class="form-control" required>
+                        </div>
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-success">Guardar Cita</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalHistoria" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title">Historia de Orientación</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3 bg-light p-3 border rounded mx-0">
+                        <div class="col-6">
+                            <p><strong>Estudiante:</strong> <span id="h-nombre"></span></p>
+                        </div>
+                        <div class="col-6">
+                            <p><strong>Motivo:</strong> <span id="h-motivo"></span></p>
+                        </div>
+                        <div class="col-6">
+                            <p><strong>Profesional:</strong> <span id="h-profesional"></span></p>
+                        </div>
+                        <div class="col-6">
+                            <p><strong>ID Cita:</strong> <span id="h-id-cita"></span></p>
+                        </div>
+                    </div>
+                    <form id="form-historia">
+                        <div class="mb-3">
+                            <label class="fw-bold">Objetivo</label>
+                            <textarea id="h-objetivo" class="form-control" rows="2" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="fw-bold">Desarrollo</label>
+                            <textarea id="h-desarrollo" class="form-control" rows="4" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="fw-bold">Compromisos</label>
+                            <textarea id="h-compromisos" class="form-control" rows="2" required></textarea>
+                        </div>
+                        <button type="submit" id="btn-finalizar"
+                            class="btn btn-success w-100">Guardar/Finalizar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="profile.js"></script>
+</body>
+
+</html>

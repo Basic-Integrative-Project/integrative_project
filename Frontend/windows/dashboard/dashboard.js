@@ -78,35 +78,35 @@ function setupLogoutButton() {
 }
 
 // ==========================
-// 🔄 BOTÓN RECARGAR
+//  BOTÓN RECARGAR ***** REPARAR ******
 // ==========================
 function setupRefreshButton() {
-  const refreshBtn = document.getElementById("refreshBtn");
+  // const refreshBtn = document.getElementById("refreshBtn");
 
-  if (!refreshBtn) return;
+  // if (!refreshBtn) return;
 
-  refreshBtn.addEventListener("click", async () => {
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
+  // refreshBtn.addEventListener("click", async () => {
+  //   try {
+  //     const user = auth.currentUser;
+  //     if (!user) return;
 
-      const res = await fetch(`https://n8n.andrescortes.dev/webhook/get-mails?uid=${encodeURIComponent(user.uid)}`);
-      const data = await res.json();
-      const emails = Array.isArray(data) ? data : data.emails || [];
+  //     const res = await fetch(`https://n8n.andrescortes.dev/webhook/get-mails?uid=${encodeURIComponent(user.uid)}`);
+  //     const data = await res.json();
+  //     const emails = Array.isArray(data) ? data : data.emails || [];
 
-      const processed = [];
-      for (const mail of emails) {
-        const tag = await classifyEmail(mail);
-        processed.push({ ...mail, tag, revisado: false });
-      }
+  //     const processed = [];
+  //     for (const mail of emails) {
+  //       const tag = await classifyEmail(mail);
+  //       processed.push({ ...mail, tag, revisado: false });
+  //     }
 
-      localStorage.setItem("dashboardEmails", JSON.stringify(processed));
-      renderEmails();
+  //     localStorage.setItem("dashboardEmails", JSON.stringify(processed));
+  //     renderEmails();
 
-    } catch (err) {
-      console.error("Error recargando correos:", err);
-    }
-  });
+  //   } catch (err) {
+  //     console.error("Error recargando correos:", err);
+  //   }
+  // });
 }
 
 // ==========================
@@ -275,3 +275,9 @@ window.responderCorreo = function(index) {
   const destino = mail.replyTo || mail.from;
   window.location.href = `mailto:${destino}?subject=Re: ${mail.subject || ""}`;
 };
+
+// coders button
+document.querySelector('#codersBtn').addEventListener('click', ()=> {
+  window.location.href = '../coders/index.html'
+  // console.log('../coders/index.html')
+});
