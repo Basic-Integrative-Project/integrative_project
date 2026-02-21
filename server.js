@@ -1,93 +1,118 @@
-// Importa el framework Express para la gestión de rutas y middleware.
-const express = require("express");
-// Importa el módulo mysql2 para interactuar con la base de datos MySQL.
-const mysql = require("mysql2");
-// Importa el módulo path para trabajar con rutas de archivos.
-const path = require("path");
-// Carga las variables de entorno del archivo .env.
-require("dotenv").config();
+const express = require("express"); // Importa el framework Express para el servidor
+const mysql = require("mysql2"); // Importa el conector para MySQL
+const path = require("path"); // Utilidad para manejar rutas de carpetas
+require("dotenv").config(); // Carga las credenciales desde el archivo .env
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const app = express(); // Inicializa la aplicación Express
+const PORT = process.env.PORT || 3000; // Define el puerto de escucha
 
-// Configuración de archivos estáticos para la carpeta public.
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json()); // Permite que el servidor procese datos en formato JSON
+app.use(express.static(path.join(__dirname, "public"))); // Sirve los archivos de la carpeta public (HTML, JS, CSS)
 
-// Configuración del pool de conexiones a la base de datos.
+// Configuración del pool de conexiones a la base de datos
 const pool = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    waitForConnections: true,
-    connectionLimit: 100,
-    queueLimit: 0
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
 });
 
-// Ruta API para obtener coders (permite filtrar por documento si se envía en la URL).
+// 1. OBTENER CODERS (CON FILTRO POR DOCUMENTO PARA EL BUSCADOR)
 app.get("/api/coders", (req, res) => {
-    // Obtenemos el documento de la consulta (query string) si existe.
-    const documento = req.query.document;
+  // Capturamos el documento que viene desde main.js mediante la URL (?document=...)
+  const documentoBusqueda = req.query.document;
 
-    // Base de la consulta SQL.
-    let sql = `
-        SELECT
-            c.id,
-            c.name,
-            c.lastname,
-            c.document,
-            c.email,
-            c.cel,
-            cl.name AS clan,
-            s.name AS shift,
-            ROUND((g.module_1 + g.module_2 + g.module_3 + g.module_4) / 4, 1) AS grade
-        FROM coders c
-        INNER JOIN clan cl ON c.clan_id = cl.id
-        INNER JOIN shift s ON c.shift_id = s.id
-        LEFT JOIN grades g ON c.id = g.coder_id
-    `;
+  // Consulta base que trae a todos los coders con su promedio calculado
+  let sql = `
+    SELECT c.id, c.name, c.lastname, c.document, c.email, c.cel, cl.name AS clan, s.name AS shift,
+    ROUND((IFNULL(g.module_1,0)+IFNULL(g.module_2,0)+IFNULL(g.module_3,0)+IFNULL(g.module_4,0))/4, 1) as grade
+    FROM coders c 
+    INNER JOIN clan cl ON c.clan_id = cl.id
+    INNER JOIN shift s ON c.shift_id = s.id
+    LEFT JOIN grades g ON c.id = g.coder_id`;
 
-    // Si el usuario envió un documento, agregamos el filtro WHERE.
-    if (documento) {
-        sql += ` WHERE c.document = ?`;
-    }
+  // Si el usuario escribió algo en el buscador, agregamos la condición WHERE
+  if (documentoBusqueda) {
+    sql += ` WHERE c.document = ?`;
+  }
 
-    // Agregamos el orden final.
-    sql += ` ORDER BY c.id ASC`;
+  sql += ` ORDER BY c.id ASC`; // Ordenamos por ID
 
-    // Ejecutamos la consulta pasando el documento si existe.
-    pool.query(sql, documento ? [documento] : [], (err, result) => {
-        if (err) {
-            console.error("Detalle del error SQL:", err.message);
-            return res.status(500).json({ error: "Error al consultar los datos." });
-        }
-        // Enviamos los resultados encontrados.
-        res.status(200).json(result);
-    });
+  // Ejecutamos la consulta. Si hay documento, lo pasamos como parámetro para evitar inyección SQL
+  pool.query(sql, documentoBusqueda ? [documentoBusqueda] : [], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(200).json(result); // Enviamos los resultados al frontend
+  });
 });
 
-// Ruta para obtener el perfil de un solo coder por su ID.
+// 2. OBTENER PERFIL DE UN CODER ESPECÍFICO POR ID
 app.get("/api/coders/:id", (req, res) => {
-    const id = req.params.id;
-    const sql = `
-        SELECT
-            c.id, c.name, c.lastname, c.document, c.email, c.cel,
-            cl.name AS clan, s.name AS shift,
-            g.module_1, g.module_2, g.module_3, g.module_4,
-            ROUND((g.module_1 + g.module_2 + g.module_3 + g.module_4) / 4, 1) AS grade
-        FROM coders c
-        INNER JOIN clan cl ON c.clan_id = cl.id
-        INNER JOIN shift s ON c.shift_id = s.id
-        LEFT JOIN grades g ON c.id = g.coder_id
-        WHERE c.id = ?
-    `;
-    pool.query(sql, [id], (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.status(200).json(result[0]);
-    });
+  const sql = `
+    SELECT c.*, 
+    cl.name AS clan, 
+    s.name AS shift, 
+    g.module_1, g.module_2, 
+    g.module_3, g.module_4,
+    ROUND((IFNULL(g.module_1,0)+IFNULL(g.module_2,0)+IFNULL(g.module_3,0)+IFNULL(g.module_4,0))/4, 1) as grade
+    FROM coders c 
+    INNER JOIN clan cl ON c.clan_id = cl.id
+    INNER JOIN shift s ON c.shift_id = s.id
+    LEFT JOIN grades g ON c.id = g.coder_id 
+    WHERE c.id = ?`;
+  
+  pool.query(sql, [req.params.id], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(200).json(result[0]); // Retornamos solo el objeto del estudiante encontrado
+  });
 });
 
-// Inicio del servidor.
-app.listen(PORT, () => {
-    console.log(`Servidor operativo en http://localhost:${PORT}`);
+// 3. OBTENER LISTA DE CITAS DE UN ESTUDIANTE
+app.get("/appointment/:id_coder", (req, res) => {
+  const sql = "SELECT * FROM appointment WHERE id_coder = ? ORDER BY date DESC";
+  pool.query(sql, [req.params.id_coder], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(200).json(result);
+  });
 });
+
+// 4. GUARDAR UNA NUEVA CITA (DESDE EL MODAL ASIGNAR CITA)
+app.post("/appointment", (req, res) => {
+  const { id_coder, subject, professional, date } = req.body;
+  const sql = "INSERT INTO appointment (id_coder, subject, professional, date, state) VALUES (?, ?, ?, ?, 0)";
+  
+  pool.query(sql, [id_coder, subject, professional, date], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(201).json({ id: result.insertId, ...req.body, state: 0 });
+  });
+});
+
+// 5. GUARDAR HISTORIA Y FINALIZAR CITA (CAMBIA ESTADO A 1)
+app.post("/history_coder", (req, res) => {
+  const { id_appointment, objetive, tracking, goals } = req.body;
+  
+  const sqlH = "INSERT INTO history_coder (id_appointment, objetive, tracking, goals) VALUES (?, ?, ?, ?)";
+  pool.query(sqlH, [id_appointment, objetive, tracking, goals], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    
+    // Al guardar la historia, actualizamos automáticamente el estado de la cita a Atendido
+    const sqlU = "UPDATE appointment SET state = 1 WHERE id = ?";
+    pool.query(sqlU, [id_appointment], (errU) => {
+      if (errU) return res.status(500).json({ error: errU.message });
+      res.status(201).json({ message: "Éxito" });
+    });
+  });
+});
+
+// 6. OBTENER DETALLE DE UNA HISTORIA POR ID DE CITA
+app.get("/history_coder/:id_app", (req, res) => {
+  const sql = "SELECT * FROM history_coder WHERE id_appointment = ?";
+  pool.query(sql, [req.params.id_app], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(200).json(result[0]);
+  });
+});
+
+// Arranca el servidor
+app.listen(PORT, () => console.log(`Servidor ejecutándose en puerto ${PORT}`));

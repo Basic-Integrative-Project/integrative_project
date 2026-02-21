@@ -1,101 +1,208 @@
-// Seleccionamos el contenedor donde pondremos la card[cite: 192, 193].
-const container = document.getElementById("perfil-container");
+document.addEventListener("DOMContentLoaded", () => {
+    // 1. Selección de elementos principales del DOM
+    const container = document.getElementById("perfil-container"); // Contenedor del perfil [cite: 14, 219]
+    const tablaCitas = document.getElementById("citas-coder"); // Cuerpo de la tabla de citas [cite: 30, 219]
+    const urlParams = new URLSearchParams(window.location.search); // Captura parámetros de la URL [cite: 219]
+    const coderId = urlParams.get("id"); // Obtiene el ID del coder de la URL [cite: 219]
+    let infoCoder = {}; // Variable global para almacenar datos del coder [cite: 220]
 
-// 1. Obtener el ID que viene en la URL (?id=X)[cite: 194, 195].
-const urlParams = new URLSearchParams(window.location.search);
-const coderId = urlParams.get("id");
-
-// 2. Función para pedir los datos del estudiante específico[cite: 197, 198].
-async function getCoderProfile() {
-    try {
-        // Pedimos los datos a la ruta del servidor[cite: 200, 201].
-        const response = await fetch(`/api/coders/${coderId}`);
-        const coder = await response.json();
-
-        // Si el estudiante existe, lo dibujamos[cite: 203, 204].
-        if (coder) {
-            renderProfile(coder);
-        } else {
-            container.innerHTML = "<div class='alert alert-danger'>Estudiante no encontrado</div>";
+    // 2. Función para cargar datos al iniciar la página [cite: 221]
+    async function cargarInicial() {
+        if (coderId) { // Solo ejecuta si hay un ID presente [cite: 222]
+            await getPerfil(); // Carga datos personales [cite: 223]
+            await getCitas(); // Carga historial de citas [cite: 224]
         }
-    } catch (error) {
-        console.error("Error:", error);
-        container.innerHTML = "<div class='alert alert-danger'>Error al conectar con el servidor</div>";
     }
-}
 
-// 3. Función para crear el HTML de la tarjeta y la gráfica.
-function renderProfile(coder) {
-    // Insertamos la estructura de la card con un canvas para la gráfica.
-    container.innerHTML = `
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white text-center">
-                <h2>Perfil del Estudiante</h2>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-5">
-                        <p><strong>Nombre completo:</strong> ${coder.name} ${coder.lastname}</p>
-                        <p><strong>Documento:</strong> ${coder.document}</p>
-                        <p><strong>Correo:</strong> ${coder.email}</p>
-                        <p><strong>Teléfono:</strong> ${coder.cel}</p>
-                        <p><strong>Clan:</strong> ${coder.clan}</p>
-                        <p><strong>Jornada:</strong> ${coder.shift}</p>
-                        <p><strong>Promedio General:</strong> <span class="badge bg-success">${coder.grade || '0.0'}</span></p>
-                    </div>
-                    <div class="col-md-7">
-                        <h5>Progreso de Notas:</h5>
-                        <canvas id="graficaNotas"></canvas>
-                    </div>
-                </div>
-            </div>
-            <div class="card-footer d-flex justify-content-center gap-4">
-                <button class="btn btn-info w-50">Asignar Cita / Psicoorientación</button>
-                <button class="btn btn-dark w-50">Historia</button>
-            </div>
-        </div>
-    `;
+    // 3. Obtener y mostrar el perfil con colores dinámicos según la nota [cite: 225]
+    async function getPerfil() {
+        const resp = await fetch(`/api/coders/${coderId}`); // Petición al servidor [cite: 226]
+        infoCoder = await resp.json(); // Convierte respuesta a JSON [cite: 226]
 
-    // Llamamos a la función que dibuja la gráfica enviando los datos del coder.
-    crearGrafica(coder);
-}
+        if (container) {
+            // LÓGICA DE COLORES SOLICITADA
+            const nota = parseFloat(infoCoder.grade) || 0; // Convierte nota a número [cite: 248]
+            let colorBadge = "bg-success"; // Color verde por defecto (mayor a 70)
 
-// 4. Función que utiliza Chart.js para dibujar la línea.
-function crearGrafica(coder) {
-    const ctx = document.getElementById('graficaNotas').getContext('2d');
-    
-    new Chart(ctx, {
-        type: 'line', // Tipo de gráfica lineal.
-        data: {
-            labels: ['Módulo 1', 'Módulo 2', 'Módulo 3', 'Módulo 4'], // Etiquetas horizontales.
-            datasets: [{
-                label: 'Calificación',
-                // Datos obtenidos del objeto coder que viene del servidor.
-                data: [
-                    coder.module_1 || 0, 
-                    coder.module_2 || 0, 
-                    coder.module_3 || 0, 
-                    coder.module_4 || 0
-                ],
-                borderColor: '#0d6efd', // Color de la línea (azul Bootstrap).
-                backgroundColor: 'rgba(13, 110, 253, 0.1)', // Color de relleno bajo la línea.
-                borderWidth: 3,
-                fill: true,
-                tension: 0.3 // Curvatura de la línea.
-            }]
-        },
-        options: {
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100 // Escala máxima de la nota.
-                }
+            if (nota < 50) {
+                colorBadge = "bg-danger"; // Rojo si es menor a 50
+            } else if (nota >= 50 && nota <= 70) {
+                colorBadge = "bg-warning"; // Amarillo entre 50 y 70
             }
-        }
-    });
-}
 
-// Ejecutar la carga inicial[cite: 245, 246].
-if (coderId) {
-    getCoderProfile();
-}
+            container.innerHTML = `
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white text-center">
+                        <h2>Perfil del Estudiante</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-5">
+                                <p><strong>Nombre:</strong> ${infoCoder.name} ${infoCoder.lastname}</p>
+                                <p><strong>Documento:</strong> ${infoCoder.document}</p>
+                                <p><strong>Correo:</strong> ${infoCoder.email}</p>
+                                <p><strong>Teléfono:</strong> ${infoCoder.cel}</p>
+                                <p><strong>Clan:</strong> ${infoCoder.clan}</p>
+                                <p><strong>Jornada:</strong> ${infoCoder.shift}</p>
+                                <p><strong>Promedio:</strong> <span class="badge ${colorBadge}">${nota}</span></p>
+                            </div>
+                            <div class="col-md-7">
+                                <canvas id="graficaNotas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer d-flex justify-content-center">
+                        <button class="btn btn-info w-75" data-bs-toggle="modal" data-bs-target="#modalCita">Asignar Cita</button>
+                    </div>
+                </div>`;
+            crearGrafica(infoCoder); // Genera la gráfica de módulos [cite: 258]
+        }
+    }
+
+    // 4. Obtener y mostrar la tabla de citas [cite: 261]
+    async function getCitas() {
+        const resp = await fetch(`/appointment/${coderId}`); // Petición de citas [cite: 262]
+        const citas = await resp.json(); // Convierte a JSON [cite: 263]
+        
+        if (tablaCitas) {
+            tablaCitas.innerHTML = ""; // Limpia la tabla antes de llenar [cite: 265]
+            citas.forEach(c => {
+                const atendido = c.state === 1; // Verifica si la cita ya fue procesada [cite: 267]
+                const row = document.createElement("tr"); // Crea fila [cite: 268]
+                row.innerHTML = `
+                    <td>${c.id}</td>
+                    <td>${c.subject}</td>
+                    <td>${c.professional}</td>
+                    <td>${new Date(c.date).toLocaleDateString()}</td>
+                    <td><span class="badge ${atendido ? 'bg-success' : 'bg-danger'}">${atendido ? 'Atendido' : 'Pendiente'}</span></td>
+                    <td class="text-center">
+                        ${atendido 
+                            ? `<button class="btn btn-info btn-sm" onclick="verH(${c.id}, '${c.subject}', '${c.professional}')"><i class="bi bi-search"></i></button>`
+                            : `<button class="btn btn-danger btn-sm"><i class="bi bi-trash"></i></button>`}
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-dark btn-sm" ${atendido ? 'disabled' : `onclick="abrirH(${c.id}, '${c.subject}', '${c.professional}')"`}>
+                            <i class="bi bi-file-earmark-text"></i>
+                        </button>
+                    </td>`;
+                tablaCitas.appendChild(row); // Agrega la fila a la tabla [cite: 289]
+            });
+        }
+    }
+
+    // 5. GESTIÓN DEL FORMULARIO DE CITA (Soluciona error de recarga y tabla vacía) [cite: 303, 304]
+    const formCita = document.getElementById("form-cita"); // [cite: 45]
+    if (formCita) {
+        formCita.addEventListener("submit", async (e) => {
+            e.preventDefault(); // DETIENE LA RECARGA DE PÁGINA [cite: 304]
+
+            const data = {
+                id_coder: coderId, // ID del estudiante actual
+                subject: document.getElementById("cita-motivo").value, // [cite: 52]
+                professional: document.getElementById("cita-profesional").value, // [cite: 59]
+                date: document.getElementById("cita-fecha").value // [cite: 48]
+            };
+
+            try {
+                const resp = await fetch("/appointment", { // Envía al servidor [cite: 309, 333]
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+
+                if (resp.ok) {
+                    // Cierra el modal de Bootstrap [cite: 318]
+                    const modalElement = document.getElementById('modalCita');
+                    const modalInstance = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+                    modalInstance.hide();
+                    
+                    formCita.reset(); // Limpia el formulario
+                    await getCitas(); // Refresca la tabla automáticamente [cite: 319]
+                }
+            } catch (err) {
+                console.error("Error al guardar cita:", err);
+            }
+        });
+    }
+
+    // 6. Funciones globales para Historia Clínica
+    window.abrirH = (id, mot, prof) => {
+        document.getElementById("h-id-cita").innerText = id; // [cite: 87, 291]
+        document.getElementById("h-nombre").innerText = `${infoCoder.name} ${infoCoder.lastname}`; // [cite: 81, 292]
+        document.getElementById("h-motivo").innerText = mot; // [cite: 83, 294]
+        document.getElementById("h-profesional").innerText = prof; // [cite: 85, 295]
+        
+        const formH = document.getElementById("form-historia"); // [cite: 89, 296]
+        formH.reset(); // Limpia campos [cite: 297]
+        
+        // Habilita edición [cite: 298]
+        document.getElementById("h-objetivo").readOnly = false;
+        document.getElementById("h-desarrollo").readOnly = false;
+        document.getElementById("h-compromisos").readOnly = false;
+        document.getElementById("btn-finalizar").style.display = "block"; // [cite: 299]
+        
+        new bootstrap.Modal(document.getElementById('modalHistoria')).show(); // [cite: 301, 302]
+    };
+
+    // Guardar Historia [cite: 303]
+    const formHistoria = document.getElementById("form-historia");
+    if (formHistoria) {
+        formHistoria.addEventListener("submit", async (e) => {
+            e.preventDefault(); // [cite: 304]
+            const data = {
+                id_appointment: document.getElementById("h-id-cita").innerText,
+                objetive: document.getElementById("h-objetivo").value,
+                tracking: document.getElementById("h-desarrollo").value,
+                goals: document.getElementById("h-compromisos").value
+            };
+
+            const resp = await fetch("/history_coder", { // [cite: 309, 334]
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
+
+            if (resp.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('modalHistoria')).hide(); // [cite: 318]
+                await getCitas(); // Refresca para mostrar la lupa [cite: 319]
+            }
+        });
+    }
+
+    window.verH = async (id, mot, prof) => {
+        const resp = await fetch(`/history_coder/${id}`); // [cite: 321, 336]
+        const h = await resp.json(); // [cite: 322]
+        
+        window.abrirH(id, mot, prof); // Reutiliza la apertura de modal
+        
+        // Llena con datos existentes [cite: 322, 323]
+        document.getElementById("h-objetivo").value = h.objetive;
+        document.getElementById("h-desarrollo").value = h.tracking;
+        document.getElementById("h-compromisos").value = h.goals;
+        
+        // Modo lectura [cite: 324]
+        document.getElementById("h-objetivo").readOnly = true;
+        document.getElementById("h-desarrollo").readOnly = true;
+        document.getElementById("h-compromisos").readOnly = true;
+        document.getElementById("btn-finalizar").style.display = "none";
+    };
+
+    // 7. Generación de Gráfica [cite: 325]
+    function crearGrafica(coder) {
+        const ctx = document.getElementById('graficaNotas'); // [cite: 251, 324]
+        if (!ctx) return;
+        new Chart(ctx, { // [cite: 325]
+            type: 'line',
+            data: {
+                labels: ['M1', 'M2', 'M3', 'M4'],
+                datasets: [{ 
+                    label: 'Notas de Módulos', 
+                    data: [coder.module_1, coder.module_2, coder.module_3, coder.module_4], 
+                    borderColor: '#0d6efd' 
+                }]
+            }
+        });
+    }
+
+    cargarInicial(); // Ejecuta la carga de datos [cite: 327]
+});
