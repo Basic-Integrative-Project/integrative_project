@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const fetch = require("node-fetch");
 const mysql = require("mysql2");
+const axios = require("axios");
 // const path = require("path");
 
 require('dotenv').config();
@@ -11,7 +12,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-
+app.get("/", (req, res) => {
+  res.send("Servidor funcionando");
+});
 
 // firebase config
 app.get('/firebase-config', (req, res) => {
@@ -301,6 +304,23 @@ app.get("/history_coder/:id_app", (req, res) => {
     res.status(200).json(result[0]);
   });
 });
+
+// enviar correo predeterminado
+app.post("/send-by-id", async (req, res) => {
+  try {
+    const response = await axios.post(
+      "https://n8n.andrescortes.dev/webhook/send-by-id",
+      req.body
+    );
+
+    res.json(response.data);
+
+  } catch (error) {
+    console.error(error.response?.data || error.message);
+    res.status(500).json({ error: "Error enviando a n8n" });
+  }
+});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

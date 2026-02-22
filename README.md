@@ -1,8 +1,12 @@
 # INTEGRATIVE PROJECT
 
-# Coder Management System `Frontend/windows/coders`
+## Project Structure ``Backend``
 
-It was designed to manage and display students' (Coders') academic information. It allows users to view a general list with averages and access a detailed profile with grades for each module, group, and assigned session[cite: 30, 41, 131, 140].
+### server.js
+Entry point of the Node.js server. Contains the API paths and the connection to the MySQL pool.
+
+### .env-example
+To handle environment variables
 
 ## Prerequisites
 **This prerequisites at `Backend` folder**
@@ -28,11 +32,12 @@ Run the following command to install Express, MySQL2, and Dotenv:
 
 1. npm init -y
 2. npm install
-3. npm install express mysql2 dotenv cors node-fetch
+3. npm install express mysql2 dotenv cors node-fetch axios
 
 into package.json, something like this:
 ```
 "dependencies": {
+    "axios": "^1.13.5",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
@@ -73,13 +78,12 @@ Servidor en http://localhost:3000
 ⚡ Node: v22.21.0
 ```
 
-## Project Structure ``Backend``
 
-### server.js
-Entry point of the Node.js server. Contains the API paths and the connection to the MySQL pool.
+## Coder Management System `Frontend/windows/coders`
 
-### .env-example
-To handle environment variables
+It was designed to manage and display students' (Coders') academic information. It allows users to view a general list with averages and access a detailed profile with grades for each module, group, and assigned session[cite: 30, 41, 131, 140].
+
+
 
 ## Project Structure ``Frontend``
 

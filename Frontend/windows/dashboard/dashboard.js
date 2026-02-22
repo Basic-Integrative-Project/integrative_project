@@ -218,7 +218,7 @@ function renderEmails() {
 // ==========================
 function updateCounters(emails) {
   setCount("inboxCount", emails.length);
-  setCount("engageCount", emails.length - emails.filter(e => ["importantes", "reunion","faltas_justificadas", "faltas_injustificadas"].includes(e.tag)).length);
+  setCount("engageCount", emails.length - emails.filter(e => ["importantes", "reunion", "faltas_justificadas", "faltas_injustificadas"].includes(e.tag)).length);
 }
 
 function setCount(id, value) {
@@ -229,7 +229,7 @@ function setCount(id, value) {
 // ==========================
 // 🔘 FUNCIONES GLOBALES
 // ==========================
-window.cambiarCategoria = function(index, nuevaCategoria) {
+window.cambiarCategoria = function (index, nuevaCategoria) {
   const emails = JSON.parse(localStorage.getItem("dashboardEmails")) || [];
   if (!emails[index]) return;
 
@@ -238,7 +238,7 @@ window.cambiarCategoria = function(index, nuevaCategoria) {
   renderEmails();
 };
 
-window.leerCorreo = function(index) {
+window.leerCorreo = function (index) {
   const emails = JSON.parse(localStorage.getItem("dashboardEmails")) || [];
   const mail = emails[index];
   if (!mail) return;
@@ -258,7 +258,7 @@ window.leerCorreo = function(index) {
   modal.show();
 };
 
-window.marcarRevisado = function(index) {
+window.marcarRevisado = function (index) {
   const emails = JSON.parse(localStorage.getItem("dashboardEmails")) || [];
   if (!emails[index]) return;
 
@@ -267,17 +267,30 @@ window.marcarRevisado = function(index) {
   renderEmails();
 };
 
-window.responderCorreo = function(index) {
+// enviar correos solo de 
+window.responderCorreo = async function (index) {
   const emails = JSON.parse(localStorage.getItem("dashboardEmails")) || [];
-  const mail = emails[index];
-  if (!mail) return;
+  if (!emails[index]) return;
 
-  const destino = mail.replyTo || mail.from;
-  window.location.href = `mailto:${destino}?subject=Re: ${mail.subject || ""}`;
+  if (emails[index].tag === "faltas_injustificadas" || emails[index].tag === "faltas_justificadas") {
+    const id = emails[index].id
+    const response = await fetch("http://localhost:3000/send-by-id", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ 
+        id
+       })
+    });
+
+    const data = await response.json();
+    console.log(data);
+
+  }
 };
 
 // coders button
-document.querySelector('#codersBtn').addEventListener('click', ()=> {
+document.querySelector('#codersBtn').addEventListener('click', () => {
   window.location.href = '../coders/index.html'
-  // console.log('../coders/index.html')
 });
