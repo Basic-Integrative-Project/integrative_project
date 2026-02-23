@@ -1,0 +1,11 @@
+# Ignorar la carpeta node_modules dentro de Backend
+Backend/node_modules/
+
+# Ignorar package-lock.json dentro de Backend
+Backend/package-lock.json
+
+# Ignorar package.json dentro de Backend
+Backend/package.json
+
+# Ignorar archivo .env dentro de Backend (archivo, no carpeta)
+Backend/.env
