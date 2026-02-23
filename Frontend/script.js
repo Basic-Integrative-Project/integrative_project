@@ -108,24 +108,21 @@ function setupLogin() {
         return;
       }
 
-      const processedEmails = [];
+      // ✅ Clasificar todos los correos en paralelo (antes era secuencial → muy lento)
+      const processedEmails = await Promise.all(
+        emails.map(async (mail) => {
+          const tag = await classifyEmail(mail);
 
-      for (const mail of emails) {
-        const tag = await classifyEmail(mail);
+          let colorClass = "primary";
+          if (tag === "alertas") colorClass = "secondary";
+          if (tag === "reunion") colorClass = "warning";
+          if (tag === "faltas_justificadas") colorClass = "success";
+          if (tag === "faltas_injustificadas") colorClass = "danger";
+          if (tag === "importantes") colorClass = "info";
 
-        let colorClass = "primary";
-        if (tag === "alertas") colorClass = "secondary";
-        if (tag === "reunion") colorClass = "warning";
-        if (tag === "faltas_justificadas") colorClass = "success";
-        if (tag === "faltas_injustificadas") colorClass = "danger";
-        if (tag === "importantes") colorClass = "info";
-
-        processedEmails.push({
-          ...mail,
-          tag,
-          colorClass,
-        });
-      }
+          return { ...mail, tag, colorClass };
+        })
+      );
 
       localStorage.setItem("dashboardEmails", JSON.stringify(processedEmails));
 
