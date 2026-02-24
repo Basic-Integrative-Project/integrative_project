@@ -80,6 +80,18 @@ let currentUser = null;
 function setupLogin() {
   document.getElementById("loginBtn")?.addEventListener("click", async () => {
     try {
+
+      // 🔥 Loader bonito
+      Swal.fire({
+        title: "Conectando...",
+        html: "Iniciando sesión y sincronizando correos 📩",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      // 🔐 LOGIN GOOGLE
       const result = await auth.signInWithPopup(provider);
       currentUser = result.user;
 
@@ -89,8 +101,7 @@ function setupLogin() {
         createdAt: new Date(),
       });
 
-      alert("Login exitoso ✅\nConectando a Gmail...");
-
+      // 🔗 CONECTAR A N8N
       const n8nUrl =
         "https://n8n.andrescortes.dev/webhook/get-mails?uid=" +
         encodeURIComponent(currentUser.uid);
@@ -104,36 +115,53 @@ function setupLogin() {
       else if (data?.json?.emails) emails = data.json.emails;
 
       if (emails.length === 0) {
-        alert("No hay correos no leídos 🎉");
+        Swal.fire({
+          icon: "success",
+          title: "Sin correos nuevos 🎉",
+          timer: 2000,
+          showConfirmButton: false
+        });
+
+        setTimeout(() => {
+          window.location.href = "./windows/dashboard/dashboard.html";
+        }, 2000);
+
         return;
       }
 
-      const processedEmails = [];
+      // ⚡ Clasificación en paralelo
+      const processedEmails = await Promise.all(
+        emails.map(async (mail) => {
+          const tag = await classifyEmail(mail);
 
-      for (const mail of emails) {
-        const tag = await classifyEmail(mail);
+          let colorClass = "primary";
+          if (tag === "alertas") colorClass = "secondary";
+          if (tag === "reunion") colorClass = "warning";
+          if (tag === "faltas_justificadas") colorClass = "success";
+          if (tag === "faltas_injustificadas") colorClass = "danger";
+          if (tag === "importantes") colorClass = "info";
 
-        let colorClass = "primary";
-        if (tag === "alertas") colorClass = "secondary";
-        if (tag === "reunion") colorClass = "warning";
-        if (tag === "faltas_justificadas") colorClass = "success";
-        if (tag === "faltas_injustificadas") colorClass = "danger";
-        if (tag === "importantes") colorClass = "info";
-
-        processedEmails.push({
-          ...mail,
-          tag,
-          colorClass,
-        });
-      }
+          return { ...mail, tag, colorClass };
+        })
+      );
 
       localStorage.setItem("dashboardEmails", JSON.stringify(processedEmails));
 
+      // ✅ Cerrar loader
+      Swal.close();
+
+      // 🚀 Redirigir
       window.location.href = "./windows/dashboard/dashboard.html";
 
     } catch (error) {
+
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: error.message
+      });
+
       console.error("Error en login:", error);
-      alert("Error: " + error.message);
     }
   });
 }

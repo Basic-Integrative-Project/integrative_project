@@ -43,18 +43,22 @@ body {
 /* ===== MOBILE SIDEBAR ===== */
 @media (max-width: 767px) {
 
-  .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 260px;
-    z-index: 1050;
-    transform: translateX(-100%);
-  }
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 260px;
+  z-index: 1050;
+  transform: translateX(-100%);
+  pointer-events: none;
+  visibility: hidden;
+}
 
-  .sidebar.active {
-    transform: translateX(0);
-  }
+.sidebar.active {
+  transform: translateX(0);
+  pointer-events: all;
+  visibility: visible;
+}
 }
 
 /* ===== OVERLAY ===== */
@@ -148,9 +152,9 @@ body {
     <div class="col-12 col-md-9 col-xl-7 p-4 email-list">
 
       <!-- Botón hamburguesa solo móvil -->
-      <div class="d-md-none mb-3">
-        <button class="btn btn-outline-dark" id="menuToggle">
-          <i class="bi bi-list"></i>
+<div class="d-md-none mb-3" style="height: 48px;">
+  <button class="btn btn-outline-dark" id="menuToggle" style="position: fixed; top: 15px; left: 15px; z-index: 1030; width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center;">
+    <i class="bi bi-list fs-4"></i>
         </button>
       </div>
 
@@ -161,15 +165,10 @@ body {
 
     <!-- 🟢 DERECHA -->
     <div class="col-12 col-xl-3 p-4">
-      <div class="email-header mb-3">
-        <input
-          type="text"
-          class="search-box form-control"
-          placeholder="Search emails..."
-        />
-      </div>
+
 
       <div class="cards-container">
+        <h5 class="text-center mb-3 text-danger">⛔ Faltas</h5>
         <div class="email-cards-stack" id="emailList"></div>
       </div>
     </div>
@@ -236,7 +235,15 @@ function closeSidebar() {
   overlay.classList.remove("active");
 }
 
-if (toggleBtn) toggleBtn.addEventListener("click", openSidebar);
+function toggleSidebar() {
+  if (sidebar.classList.contains("active")) {
+    closeSidebar();
+  } else {
+    openSidebar();
+  }
+}
+
+if (toggleBtn) toggleBtn.addEventListener("click", toggleSidebar);
 if (closeBtn) closeBtn.addEventListener("click", closeSidebar);
 if (overlay) overlay.addEventListener("click", closeSidebar);
 </script>

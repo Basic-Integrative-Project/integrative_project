@@ -4,7 +4,6 @@ const cors = require("cors");
 const fetch = require("node-fetch");
 const mysql = require("mysql2");
 const axios = require("axios");
-// const path = require("path");
 
 require('dotenv').config();
 
@@ -60,7 +59,7 @@ function ruleBasedFallback(subject, text) {
       s,
     );
   const esFaltaSinJustificacion =
-  /(me qued[eé]\s+dormid[oa]|me dorm[ií]|no vine|no fui|no asist[ií]|falte sin avisar|no avis[eé]|sin permiso|olvid[eé]|llegu[eé] tarde|no ten[ií]a ganas)/.test(
+    /(me qued[eé]\s+dormid[oa]|me dorm[ií]|no vine|no fui|no asist[ií]|falte sin avisar|no avis[eé]|sin permiso|olvid[eé]|llegu[eé] tarde|no ten[ií]a ganas)/.test(
       s,
     );
 
@@ -107,6 +106,69 @@ Cuerpo: "${text.substring(0, 1000)}"
 Etiqueta:`;
 }
 
+// Función de clasificación reutilizable (usada por ambos endpoints)
+async function classifySingleEmail(subject = "", text = "") {
+  const cleanText = text.replace(/\s+/g, " ").trim();
+  const prompt = buildClassificationPrompt(subject, cleanText);
+
+  const response = await fetch(OLLAMA_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "llama3.1:8b",
+      prompt: prompt,
+      stream: false,
+      options: {
+        temperature: 0.1,
+        num_predict: 25,
+      },
+    }),
+  });
+
+  if (!response.ok) throw new Error(`Ollama HTTP ${response.status}`);
+
+  const data = await response.json();
+  let rawResponse = (data?.response || "").trim();
+
+  const tagMappings = {
+    falta_justificada: "faltas_justificadas",
+    faltajustificada: "faltas_justificadas",
+    justificada: "faltas_justificadas",
+    falta_injustificada: "faltas_injustificadas",
+    faltasinjustificada: "faltas_injustificadas",
+    injustificada: "faltas_injustificadas",
+    reunión: "reunion",
+    meeting: "reunion",
+    importante: "importantes",
+    alerta: "alertas",
+    spam: "alertas",
+    notificación: "alertas",
+    notificacion: "alertas",
+  };
+
+  let tag = rawResponse
+    .toLowerCase()
+    .replace(/["'\\`.]/g, "")
+    .replace(/^(etiqueta|tag|categoría|clasificación|respuesta):\s*/i, "")
+    .replace(/\s+/g, "_")
+    .replace(/_{2,}/g, "_")
+    .replace(/^_|_$/g, "")
+    .split("\n")[0]
+    .trim();
+
+  if (tagMappings[tag]) tag = tagMappings[tag];
+
+  console.log(`[LLM]: "${rawResponse}" → "${tag}"`);
+
+  if (!VALID_TAGS.includes(tag)) {
+    console.log(`[Fallback] "${tag}" inválido`);
+    tag = ruleBasedFallback(subject, text);
+  }
+
+  return tag;
+}
+
+// ─── ENDPOINT INDIVIDUAL (mantener por compatibilidad) ────────────────────────
 app.post("/classify-email", async (req, res) => {
   const { subject = "", text = "" } = req.body;
 
@@ -114,68 +176,12 @@ app.post("/classify-email", async (req, res) => {
     return res.status(400).json({ error: "Se requiere subject o text" });
   }
 
-  const cleanText = text.replace(/\s+/g, " ").trim();
-  const prompt = buildClassificationPrompt(subject, cleanText);
-
   try {
-    const response = await fetch(OLLAMA_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "llama3.1:8b",
-        prompt: prompt,
-        stream: false,
-        options: {
-          temperature: 0.1,
-          num_predict: 25,
-        },
-      }),
-    });
-
-    if (!response.ok) throw new Error(`Ollama HTTP ${response.status}`);
-
-    const data = await response.json();
-    let rawResponse = (data?.response || "").trim();
-
-    let tag = rawResponse
-      .toLowerCase()
-      .replace(/["'\\.`]/g, "")
-      .replace(/^(etiqueta|tag|categoría|clasificación|respuesta):\s*/i, "")
-      .replace(/\s+/g, "_")
-      .replace(/_{2,}/g, "_")
-      .replace(/^_|_$/g, "")
-      .split("\n")[0]
-      .trim();
-
-    const tagMappings = {
-      falta_justificada: "faltas_justificadas",
-      faltajustificada: "faltas_justificadas",
-      justificada: "faltas_justificadas",
-      falta_injustificada: "faltas_injustificadas",
-      faltasinjustificada: "faltas_injustificadas",
-      injustificada: "faltas_injustificadas",
-      reunión: "reunion",
-      meeting: "reunion",
-      importante: "importantes",
-      alerta: "alertas",
-      spam: "alertas",
-      notificación: "alertas",
-      notificacion: "alertas",
-    };
-
-    if (tagMappings[tag]) tag = tagMappings[tag];
-
-    console.log(`[LLM]: "${rawResponse}" → "${tag}"`);
-
-    if (!VALID_TAGS.includes(tag)) {
-      console.log(`[Fallback] "${tag}" inválido`);
-      tag = ruleBasedFallback(subject, text);
-    }
-
+    const tag = await classifySingleEmail(subject, text);
     res.json({
       tag,
       hidden: tag === "alertas",
-      source: VALID_TAGS.includes(tag) ? "llm" : "fallback",
+      source: "llm",
     });
   } catch (err) {
     console.error("[Error]:", err.message);
@@ -187,6 +193,33 @@ app.post("/classify-email", async (req, res) => {
       error: err.message,
     });
   }
+});
+
+// ─── ENDPOINT BATCH (nuevo: clasifica todos los correos de una sola vez) ──────
+// Recibe: { emails: [{ subject, text }, ...] }
+// Retorna: [{ tag, hidden, source }, ...]
+app.post("/classify-emails", async (req, res) => {
+  const { emails } = req.body;
+
+  if (!Array.isArray(emails) || emails.length === 0) {
+    return res.status(400).json({ error: "Se requiere un array de emails" });
+  }
+
+  // Clasificar todos en paralelo
+  const results = await Promise.all(
+    emails.map(async ({ subject = "", text = "" }) => {
+      try {
+        const tag = await classifySingleEmail(subject, text);
+        return { tag, hidden: tag === "alertas", source: "llm" };
+      } catch (err) {
+        console.error("[Error batch]:", err.message);
+        const tag = ruleBasedFallback(subject, text);
+        return { tag, hidden: tag === "alertas", source: "fallback", error: err.message };
+      }
+    })
+  );
+
+  res.json(results);
 });
 
 app.get("/test", (req, res) => {
@@ -212,10 +245,8 @@ const pool = mysql.createPool({
 
 // 1. OBTENER CODERS (CON FILTRO POR DOCUMENTO PARA EL BUSCADOR)
 app.get("/api/coders", (req, res) => {
-  // Capturamos el documento que viene desde main.js mediante la URL (?document=...)
   const documentoBusqueda = req.query.document;
 
-  // Consulta base que trae a todos los coders con su promedio calculado
   let sql = `
     SELECT c.id, c.name, c.lastname, c.document, c.email, c.cel, cl.name AS clan, s.name AS shift,
     ROUND((IFNULL(g.module_1,0)+IFNULL(g.module_2,0)+IFNULL(g.module_3,0)+IFNULL(g.module_4,0))/4, 1) as grade
@@ -224,17 +255,15 @@ app.get("/api/coders", (req, res) => {
     INNER JOIN shift s ON c.shift_id = s.id
     LEFT JOIN grades g ON c.id = g.coder_id`;
 
-  // Si el usuario escribió algo en el buscador, agregamos la condición WHERE
   if (documentoBusqueda) {
     sql += ` WHERE c.document = ?`;
   }
 
-  sql += ` ORDER BY c.id ASC`; // Ordenamos por ID
+  sql += ` ORDER BY c.id ASC`;
 
-  // Ejecutamos la consulta. Si hay documento, lo pasamos como parámetro para evitar inyección SQL
   pool.query(sql, documentoBusqueda ? [documentoBusqueda] : [], (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.status(200).json(result); // Enviamos los resultados al frontend
+    res.status(200).json(result);
   });
 });
 
@@ -255,7 +284,7 @@ app.get("/api/coders/:id", (req, res) => {
   
   pool.query(sql, [req.params.id], (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.status(200).json(result[0]); // Retornamos solo el objeto del estudiante encontrado
+    res.status(200).json(result[0]);
   });
 });
 
@@ -287,7 +316,6 @@ app.post("/history_coder", (req, res) => {
   pool.query(sqlH, [id_appointment, objetive, tracking, goals], (err) => {
     if (err) return res.status(500).json({ error: err.message });
     
-    // Al guardar la historia, actualizamos automáticamente el estado de la cita a Atendido
     const sqlU = "UPDATE appointment SET state = 1 WHERE id = ?";
     pool.query(sqlU, [id_appointment], (errU) => {
       if (errU) return res.status(500).json({ error: errU.message });
