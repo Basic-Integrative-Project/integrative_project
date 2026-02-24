@@ -9,3 +9,6 @@ Backend/package.json
 
 # Ignorar archivo .env dentro de Backend (archivo, no carpeta)
 Backend/.env
+
+#Ignorar .vscode dentro de Backend
+.vscode
