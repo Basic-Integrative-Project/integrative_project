@@ -136,7 +136,7 @@ function setupLogoutButton() {
 }
 
 // ==========================
-// 🔄 BOTÓN RECARGAR
+//  BOTÓN RECARGAR
 // ==========================
 function setupRefreshButton() {
   const refreshBtn = document.getElementById("refreshBtn");
@@ -147,10 +147,33 @@ function setupRefreshButton() {
     refreshBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Cargando...';
 
     try {
-      await fetchAndProcessEmails();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const res = await fetch(`https://n8n.andrescortes.dev/webhook/get-mails?uid=${encodeURIComponent(user.uid)}`);
+      const data = await res.json();
+      const emails = Array.isArray(data) ? data : data.emails || [];
+
+      // ✅ Clasificar todos en paralelo
+      const processed = await Promise.all(
+        emails.map(async (mail) => {
+          const tag = await classifyEmail(mail);
+          let colorClass = "primary";
+          if (tag === "alertas") colorClass = "secondary";
+          if (tag === "reunion") colorClass = "warning";
+          if (tag === "faltas_justificadas") colorClass = "success";
+          if (tag === "faltas_injustificadas") colorClass = "danger";
+          if (tag === "importantes") colorClass = "info";
+          return { ...mail, tag, colorClass, revisado: false };
+        })
+      );
+
+      localStorage.setItem("dashboardEmails", JSON.stringify(processed));
+      renderEmails();
+
     } catch (err) {
       console.error("Error recargando correos:", err);
-      alert("Error al recargar correos.");
+      alert("Error al recargar correos. Revisa la consola.");
     } finally {
       refreshBtn.disabled = false;
       refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Recargar';
@@ -159,7 +182,7 @@ function setupRefreshButton() {
 }
 
 // ==========================
-// 🧠 CLASIFICACIÓN BATCH
+// 🧠 CLASIFICACIÓN IA + fallback local (solo usada por el botón Recargar)
 // ==========================
 async function classifyEmailsBatch(emails) {
   try {

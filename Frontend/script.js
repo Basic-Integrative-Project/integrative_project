@@ -129,7 +129,7 @@ function setupLogin() {
         return;
       }
 
-      // ⚡ Clasificación en paralelo
+      // ✅ Clasificar todos los correos en paralelo (antes era secuencial → muy lento)
       const processedEmails = await Promise.all(
         emails.map(async (mail) => {
           const tag = await classifyEmail(mail);
