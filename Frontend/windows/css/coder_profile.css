@@ -1,0 +1,29 @@
+*{
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.bg-body{
+  background: linear-gradient(180deg,
+    #6c63ff 0%,
+    rgba(43, 58, 103, 1) 100%
+  );
+  height: 100vh;
+}
+
+.btn-purple{
+  background: #6c63ff 0%;
+  color: white;
+  font-weight: bold;
+}
+
+.btn-purple:hover{
+  background:  #2b3a67 100%;
+  color:  #ffffff;
+}
+
+.bg-title{
+    background:  #2b3a67 100%;
+  color:  #ffffff;
+}
