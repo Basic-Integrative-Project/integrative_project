@@ -32,7 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             container.innerHTML = `
                 <div class="card shadow">
-                    <div class="card-header bg-primary text-white text-center">
+                    <div class="card-header bg-title text-white text-center">
                         <h2>Perfil del Estudiante</h2>
                     </div>
                     <div class="card-body">
@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         </div>
                     </div>
                     <div class="card-footer d-flex justify-content-center">
-                        <button class="btn btn-info w-75" data-bs-toggle="modal" data-bs-target="#modalCita">Asignar Cita</button>
+                        <button class="btn btn-purple w-75" data-bs-toggle="modal" data-bs-target="#modalCita">Asignar Cita</button>
                     </div>
                 </div>`;
             crearGrafica(infoCoder); // Genera la gráfica de módulos [cite: 258]
@@ -77,7 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <td><span class="badge ${atendido ? 'bg-success' : 'bg-danger'}">${atendido ? 'Atendido' : 'Pendiente'}</span></td>
                     <td class="text-center">
                         ${atendido 
-                            ? `<button class="btn btn-info btn-sm" onclick="verH(${c.id}, '${c.subject}', '${c.professional}')"><i class="bi bi-search"></i></button>`
+                            ? `<button class="btn btn-purple btn-sm" onclick="verH(${c.id}, '${c.subject}', '${c.professional}')"><i class="bi bi-search"></i></button>`
                             : `<button class="btn btn-danger btn-sm"><i class="bi bi-trash"></i></button>`}
                     </td>
                     <td class="text-center">

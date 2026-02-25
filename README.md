@@ -1,5 +1,10 @@
 # INTEGRATIVE PROJECT
 
+# Integrated Project - Coder Management System
+
+This project is a web application designed to manage and display students' (Coders') academic information. [cite_start]It allows users to view a general list with averages and access a detailed profile with grades for each module, group, and assigned session[cite: 30, 41, 131, 140].
+
+## Prerequisites
 ## Project Structure ``Backend``
 
 ### server.js
