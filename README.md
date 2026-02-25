@@ -26,9 +26,9 @@ git clone [https://github.com/Basic-Integrative-Project/integrative_project.git]
 
 cd integrative_project
 
-### 2. Install dependencies
+### 2. Install dependencies 
 
-Run the following command to install Express, MySQL2, and Dotenv:
+Open de folder `Backend` and run the following command to install Express, MySQL2, and Dotenv:
 
 1. npm init -y
 2. npm install

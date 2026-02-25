@@ -2,17 +2,34 @@
 // 🔹 OBTENER CONFIGURACIÓN DESDE EL BACKEND
 // ==========================
 async function loadFirebaseConfig() {
-  const response = await fetch("http://localhost:3000/firebase-config"); // apunta a tu server.js
-
+  const response = await fetch("http://localhost:3000/firebase-config");
   if (!response.ok) {
     throw new Error("No se pudo obtener la configuración de Firebase");
   }
-
   return await response.json();
 }
 
 // ==========================
-// 🔥 INICIALIZAR FIREBASE Y AUTH
+// 🔒 CACHÉ SOLO EN MEMORIA
+// ==========================
+let emailsCache = [];
+
+function saveEmails(emails) {
+  emailsCache = emails;
+}
+
+function loadEmails() {
+  return emailsCache;
+}
+
+//localStorage.removeItem("dashboardEmails");
+
+window.addEventListener("beforeunload", () => {
+  emailsCache = [];
+});
+
+// ==========================
+// 🔥 INICIALIZAR FIREBASE
 // ==========================
 async function initApp() {
   try {
@@ -23,7 +40,6 @@ async function initApp() {
     }
 
     window.auth = firebase.auth();
-
     console.log("✅ Firebase inicializado");
 
     setupAuthListener();
@@ -38,10 +54,47 @@ async function initApp() {
 initApp();
 
 // ==========================
-// 👤 AUTH STATE LISTENER
+// 🚀 FUNCIÓN CENTRAL DE CARGA
+// ==========================
+async function fetchAndProcessEmails() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const res = await fetch(
+    `https://n8n.andrescortes.dev/webhook/get-mails?uid=${encodeURIComponent(user.uid)}`
+  );
+  const data = await res.json();
+  const emails = Array.isArray(data) ? data : data.emails || [];
+
+  const tagResults = await classifyEmailsBatch(emails);
+
+  const colorMap = {
+    alertas: "secondary",
+    reunion: "warning",
+    faltas_justificadas: "success",
+    faltas_injustificadas: "danger",
+    importantes: "info",
+  };
+
+  const processed = emails.map((mail, i) => {
+    const tag = tagResults[i]?.tag || "importantes";
+    return {
+      ...mail,
+      tag,
+      colorClass: colorMap[tag] || "info",
+      revisado: false,
+    };
+  });
+
+  saveEmails(processed);
+  renderEmails();
+}
+
+// ==========================
+// 👤 AUTH LISTENER
 // ==========================
 function setupAuthListener() {
-  auth.onAuthStateChanged(user => {
+  auth.onAuthStateChanged(async (user) => {
     if (!user) {
       window.location.href = "../../index.html";
       return;
@@ -55,10 +108,14 @@ function setupAuthListener() {
     if (email) email.textContent = user.email;
 
     if (avatar) {
-      avatar.textContent = (user.displayName?.charAt(0) || user.email?.charAt(0) || "U").toUpperCase();
+      avatar.textContent = (
+        user.displayName?.charAt(0) ||
+        user.email?.charAt(0) ||
+        "U"
+      ).toUpperCase();
     }
 
-    renderEmails();
+    await fetchAndProcessEmails(); // 🔥 CARGA AUTOMÁTICA EN F5
   });
 }
 
@@ -70,6 +127,7 @@ function setupLogoutButton() {
 
   if (logoutBtn) {
     logoutBtn.addEventListener("click", () => {
+      emailsCache = [];
       auth.signOut()
         .then(() => window.location.href = "../../index.html")
         .catch(err => console.error("Error cerrando sesión:", err));
@@ -78,77 +136,75 @@ function setupLogoutButton() {
 }
 
 // ==========================
-//  BOTÓN RECARGAR ***** REPARAR ******
+//  BOTÓN RECARGAR
 // ==========================
 function setupRefreshButton() {
-  // const refreshBtn = document.getElementById("refreshBtn");
+  const refreshBtn = document.getElementById("refreshBtn");
+  if (!refreshBtn) return;
 
-  // if (!refreshBtn) return;
+refreshBtn.addEventListener("click", async () => {
+  refreshBtn.disabled = true;
+  refreshBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Cargando...';
 
-  // refreshBtn.addEventListener("click", async () => {
-  //   try {
-  //     const user = auth.currentUser;
-  //     if (!user) return;
-
-  //     const res = await fetch(`https://n8n.andrescortes.dev/webhook/get-mails?uid=${encodeURIComponent(user.uid)}`);
-  //     const data = await res.json();
-  //     const emails = Array.isArray(data) ? data : data.emails || [];
-
-  //     const processed = [];
-  //     for (const mail of emails) {
-  //       const tag = await classifyEmail(mail);
-  //       processed.push({ ...mail, tag, revisado: false });
-  //     }
-
-  //     localStorage.setItem("dashboardEmails", JSON.stringify(processed));
-  //     renderEmails();
-
-  //   } catch (err) {
-  //     console.error("Error recargando correos:", err);
-  //   }
-  // });
+  try {
+    await fetchAndProcessEmails(); // 🔥 reutiliza la función central
+  } catch (err) {
+    console.error("Error recargando correos:", err);
+    alert("Error al recargar correos. Revisa la consola.");
+  } finally {
+    refreshBtn.disabled = false;
+    refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Recargar';
+  }
+});
 }
 
 // ==========================
-// 🧠 CLASIFICACIÓN IA + fallback local
+// 🧠 CLASIFICACIÓN IA + fallback local (solo usada por el botón Recargar)
 // ==========================
-async function classifyEmail(mail) {
+async function classifyEmailsBatch(emails) {
   try {
-    const res = await fetch("http://localhost:3000/classify-email", {
+    const res = await fetch("http://localhost:3000/classify-emails", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject: mail.subject || "", text: mail.text || "" }),
+      body: JSON.stringify({
+        emails: emails.map(m => ({
+          subject: m.subject || "",
+          text: m.text || ""
+        }))
+      }),
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    const data = await res.json();
-    return data.tag || "importantes";
+    return await res.json();
 
   } catch (err) {
-    console.error("Error conectando al backend, fallback local:", err);
-
-    const text = ((mail.subject || "") + " " + (mail.text || "")).toLowerCase();
-
-    if (/reunión|meeting|zoom|teams|meet/.test(text)) return "reunion";
-    if (/médico|hospital|certificado|incapacidad/.test(text)) return "faltas_justificadas";
-    if (/no fui|me dormí|sin permiso/.test(text)) return "faltas_injustificadas";
-
-    return "importantes";
+    console.error("Error en clasificación batch:", err);
+    return emails.map(mail => ({
+      tag: localFallback(mail.subject, mail.text)
+    }));
   }
 }
 
+// Fallback local (solo si el backend no responde)
+function localFallback(subject = "", text = "") {
+  const s = (subject + " " + text).toLowerCase();
+  if (/(notificación|notification|alerta|promoción|oferta|descuento|newsletter|no-reply|noreply|marketing|publicidad|facebook|instagram|twitter|linkedin|github)/.test(s)) return "alertas";
+  if (/(reunión|reunion|meet|call|zoom|teams|agendar|calendario|llamada)/.test(s)) return "reunion";
+  if (/(baja médica|certificado médico|incapacidad|accidente|enfermedad|médico|hospital|urgencia|duelo|matrimonio|nacimiento|paternidad|maternidad|judicial|citación)/.test(s)) return "faltas_justificadas";
+  if (/(me qued[eé]\s+dormid[oa]|me dorm[ií]|no vine|no fui|no asist[ií]|falte sin avisar|no avis[eé]|sin permiso|olvid[eé]|llegu[eé] tarde|no ten[ií]a ganas)/.test(s)) return "faltas_injustificadas";
+  return "importantes";
+}
+
 // ==========================
-// 📧 RENDER DE CORREOS
+// 📧 RENDER DE CORREOS (DOM eficiente: acumula strings, un solo innerHTML)
 // ==========================
 function renderEmails() {
-  const emails = JSON.parse(localStorage.getItem("dashboardEmails")) || [];
+  const emails = loadEmails();
 
   const leftContainer = document.getElementById("emailList");
   const centerContainer = document.getElementById("emailList2");
   if (!leftContainer || !centerContainer) return;
 
-  leftContainer.innerHTML = "";
   centerContainer.innerHTML = `
     <div class="row w-100">
       <div class="col-lg-6">
@@ -162,11 +218,15 @@ function renderEmails() {
     </div>
   `;
 
-  const importantColumn = document.getElementById("importantColumn");
-  const meetingColumn = document.getElementById("meetingColumn");
+  // Acumular HTML por columna (evita re-parsear el DOM en cada iteración)
+  let leftHtml = "";
+  let importantHtml = "";
+  let meetingHtml = "";
 
   emails.forEach((mail, index) => {
     if (mail.tag === "alertas") return;
+
+    const colorClass = mail.colorClass || "info";
 
     const selectHTML = `
       <div class="mt-2">
@@ -189,11 +249,6 @@ function renderEmails() {
 
     const footerHTML = `<div class="email-card-footer mt-2"><small>${mail.date ? new Date(mail.date).toLocaleString() : ""}</small></div>`;
 
-    let colorClass = "info";
-    if (mail.tag === "reunion") colorClass = "warning";
-    if (mail.tag === "faltas_justificadas") colorClass = "success";
-    if (mail.tag === "faltas_injustificadas") colorClass = "danger";
-
     const cardHTML = `
       <div class="email-card border-${colorClass} mb-3 ${mail.revisado ? 'opacity-50' : ''}">
         <div class="email-card-header"><span class="badge bg-${colorClass}">${mail.tag.toUpperCase()}</span></div>
@@ -205,10 +260,15 @@ function renderEmails() {
       </div>
     `;
 
-    if (mail.tag === "importantes") importantColumn.innerHTML += cardHTML;
-    if (mail.tag === "reunion") meetingColumn.innerHTML += cardHTML;
-    if (mail.tag === "faltas_justificadas" || mail.tag === "faltas_injustificadas") leftContainer.innerHTML += cardHTML;
+    if (mail.tag === "importantes") importantHtml += cardHTML;
+    else if (mail.tag === "reunion") meetingHtml += cardHTML;
+    else leftHtml += cardHTML; // faltas_justificadas y faltas_injustificadas
   });
+
+  // Asignar todo de una sola vez
+  leftContainer.innerHTML = leftHtml;
+  document.getElementById("importantColumn").innerHTML = importantHtml;
+  document.getElementById("meetingColumn").innerHTML = meetingHtml;
 
   updateCounters(emails);
 }
@@ -230,16 +290,25 @@ function setCount(id, value) {
 // 🔘 FUNCIONES GLOBALES
 // ==========================
 window.cambiarCategoria = function (index, nuevaCategoria) {
-  const emails = JSON.parse(localStorage.getItem("dashboardEmails")) || [];
+  const emails = loadEmails();
   if (!emails[index]) return;
 
+  const colorMap = {
+    alertas: "secondary",
+    reunion: "warning",
+    faltas_justificadas: "success",
+    faltas_injustificadas: "danger",
+    importantes: "info",
+  };
+
   emails[index].tag = nuevaCategoria;
-  localStorage.setItem("dashboardEmails", JSON.stringify(emails));
+  emails[index].colorClass = colorMap[nuevaCategoria] || "info";
+  saveEmails(emails);
   renderEmails();
 };
 
 window.leerCorreo = function (index) {
-  const emails = JSON.parse(localStorage.getItem("dashboardEmails")) || [];
+  const emails = loadEmails();
   const mail = emails[index];
   if (!mail) return;
 
@@ -259,38 +328,34 @@ window.leerCorreo = function (index) {
 };
 
 window.marcarRevisado = function (index) {
-  const emails = JSON.parse(localStorage.getItem("dashboardEmails")) || [];
+  const emails = loadEmails();
   if (!emails[index]) return;
 
   emails[index].revisado = true;
-  localStorage.setItem("dashboardEmails", JSON.stringify(emails));
+  saveEmails(emails);
   renderEmails();
 };
 
-// enviar correos solo de 
 window.responderCorreo = async function (index) {
-  const emails = JSON.parse(localStorage.getItem("dashboardEmails")) || [];
+  const emails = loadEmails();
   if (!emails[index]) return;
 
   if (emails[index].tag === "faltas_injustificadas" || emails[index].tag === "faltas_justificadas") {
-    const id = emails[index].id
+    const id = emails[index].id;
     const response = await fetch("http://localhost:3000/send-by-id", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ 
-        id
-       })
+      body: JSON.stringify({ id })
     });
 
     const data = await response.json();
     console.log(data);
-
   }
 };
 
 // coders button
 document.querySelector('#codersBtn').addEventListener('click', () => {
-  window.location.href = '../coders/index.html'
+  window.location.href = '../coders/index.html';
 });
