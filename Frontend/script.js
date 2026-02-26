@@ -10,25 +10,17 @@ async function loadFirebaseConfig() {
 }
 
 // 🔥 INICIALIZAR APP
-async function initApp() {
-  try {
-    const firebaseConfig = await loadFirebaseConfig();
-
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
+// script.js
+async function loadFirebaseConfig() {
+    try {
+        // Usamos la URL completa del servidor backend
+        const response = await fetch('http://localhost:3000/firebase-config'); 
+        if (!response.ok) throw new Error('No se pudo obtener la configuración');
+        return await response.json();
+    } catch (error) {
+        console.error("Error cargando configuración:", error);
+        throw error;
     }
-
-    window.auth = firebase.auth();
-    window.db = firebase.firestore();
-    window.provider = new firebase.auth.GoogleAuthProvider();
-
-    console.log("✅ Firebase inicializado");
-
-    setupLogin();
-
-  } catch (error) {
-    console.error("Error inicializando Firebase:", error);
-  }
 }
 
 initApp();

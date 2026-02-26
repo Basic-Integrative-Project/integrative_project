@@ -1,0 +1,30 @@
+{
+  "name": "integrative_project",
+  "version": "1.0.0",
+  "description": "This project is a web application designed to manage and display students' (Coders') academic information. [cite_start]It allows users to view a general list with averages and access a detailed profile with grades for each module, group, and assigned session[cite: 30, 41, 131, 140].",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Basic-Integrative-Project/integrative_project.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Basic-Integrative-Project/integrative_project/issues"
+  },
+  "homepage": "https://github.com/Basic-Integrative-Project/integrative_project#readme",
+  "dependencies": {
+    "axios": "^1.13.5",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "multer": "^2.0.2",
+    "mysql2": "^3.18.1",
+    "node-fetch": "^3.3.2"
+  }
+}
