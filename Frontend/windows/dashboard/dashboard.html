@@ -1,252 +1,235 @@
 <!doctype html>
 <html lang="es">
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Email Dashboard - Inboxer</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>InboxIQ - INBOX</title>
 
-<!-- Bootstrap -->
-<link
-  href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
-  rel="stylesheet"
-/>
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
 
-<link
-  rel="stylesheet"
-  href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
-/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" />
 
-<link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css" />
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
-<style>
-body {
-  overflow-x: hidden;
-}
+  <style>
+    body {
+      overflow-x: hidden;
+    }
 
-/* ===== SIDEBAR GRADIENTE VERTICAL ===== */
-.sidebar {
-  background: linear-gradient(
-    180deg,
-    rgba(108, 99, 255, 1) 0%,
-    rgba(43, 58, 103, 1) 100%
-  );
-  color: white;
-  min-height: 100vh;
-  transition: transform 0.3s ease;
-}
+    /* ===== SIDEBAR GRADIENTE VERTICAL ===== */
+    .sidebar {
+      background: linear-gradient(180deg,
+          rgba(108, 99, 255, 1) 0%,
+          rgba(43, 58, 103, 1) 100%);
+      color: white;
+      min-height: 100vh;
+      transition: transform 0.3s ease;
+    }
 
-/* ===== MOBILE SIDEBAR ===== */
-@media (max-width: 767px) {
+    /* ===== MOBILE SIDEBAR ===== */
+    @media (max-width: 767px) {
 
-.sidebar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 260px;
-  z-index: 1050;
-  transform: translateX(-100%);
-  pointer-events: none;
-  visibility: hidden;
-}
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 260px;
+        z-index: 1050;
+        transform: translateX(-100%);
+        pointer-events: none;
+        visibility: hidden;
+      }
 
-.sidebar.active {
-  transform: translateX(0);
-  pointer-events: all;
-  visibility: visible;
-}
-}
+      .sidebar.active {
+        transform: translateX(0);
+        pointer-events: all;
+        visibility: visible;
+      }
+    }
 
-/* ===== OVERLAY ===== */
-.sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 1040;
-  display: none;
-}
+    /* ===== OVERLAY ===== */
+    .sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 1040;
+      display: none;
+    }
 
-.sidebar-overlay.active {
-  display: block;
-}
-</style>
+    .sidebar-overlay.active {
+      display: block;
+    }
+  </style>
 </head>
 
 <body>
 
-<div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-<div class="container-fluid p-0">
-  <div class="row g-0 min-vh-100">
+  <div class="container-fluid p-0">
+    <div class="row g-0 min-vh-100">
 
-    <!-- 🔵 SIDEBAR -->
-    <div class="col-12 col-md-3 col-xl-2 sidebar position-relative" id="sidebar">
+      <!-- 🔵 SIDEBAR -->
+      <div class="col-12 col-md-3 col-xl-2 sidebar position-relative" id="sidebar">
 
-      <button id="sidebarClose"
-        class="d-md-none btn btn-link text-white position-absolute"
-        style="top:15px;right:15px;font-size:20px;padding:0;">
-        <i class="bi bi-x-lg"></i>
-      </button>
-
-      <div class="logo">
-        <div class="logo-icon">
-          <i class="bi bi-inbox-fill"></i>
-        </div>
-        Inboxer
-      </div>
-
-      <button class="btn-compose">
-        <i class="bi bi-pencil-square me-2 btn-primary"></i>Compose
-      </button>
-
-      <ul class="nav-menu">
-        <li class="nav-item active">
-          <i class="bi bi-inbox"></i> Inbox
-        </li>
-
-        <button id="refreshBtn"
-          class="nav-item btn btn-link text-white w-100 text-start btn-primary">
-          <i class="bi bi-arrow-clockwise"></i> Recargar
+        <button id="sidebarClose" class="d-md-none btn btn-link text-white position-absolute"
+          style="top:15px;right:15px;font-size:20px;padding:0;">
+          <i class="bi bi-x-lg"></i>
         </button>
 
-        <button id="codersBtn"
-          class="nav-item btn btn-link text-white w-100 text-start btn-primary">
-          <i class="bi bi-people"></i> Coders
-        </button>
-      </ul>
-
-      <!-- 🔥 CONTADORES -->
-      <div class="stats-cards">
-        <div class="stat-card">
-          <div class="stat-label text-black">Inbox</div>
-          <div class="stat-value text-black" id="inboxCount">0</div>
+        <div class="logo">
+          <img class="img-fluid" src="../../assets/logo/logo inboxqa2.png" alt="">
         </div>
-        <div class="stat-card primary">
-          <div class="stat-label">Ignorados</div>
-          <div class="stat-value" id="engageCount">0</div>
-        </div>
-      </div>
 
-      <!-- 👤 USUARIO -->
-      <div class="user-profile d-flex align-items-center justify-content-between">
-        <div class="d-flex align-items-center">
-          <div id="userAvatar" class="user-avatar"></div>
-          <div class="user-info ms-2">
-            <div id="userName" class="user-name"></div>
-            <div id="userEmail" class="user-email small text-white"></div>
+        <ul class="nav-menu">
+          <li class="nav-item active">
+            <i class="bi bi-inbox"></i> INBOX
+          </li>
+
+          <button id="refreshBtn"
+            class="nav-item btn btn-link text-white w-100 text-start btn-primary text-decoration-none">
+            <i class="bi bi-arrow-clockwise"></i> RECARGAR
+          </button>
+
+          <button id="codersBtn"
+            class="nav-item btn btn-link text-white w-100 text-start btn-primary text-decoration-none">
+            <i class="bi bi-people"></i> CODERS
+          </button>
+        </ul>
+
+        <!-- 🔥 CONTADORES -->
+        <div class="stats-cards">
+          <div class="stat-card">
+            <div class="stat-label text-black text-center">Inbox</div>
+            <div class="stat-value text-black text-center fw-bold" id="inboxCount">0</div>
           </div>
         </div>
 
-        <button id="logoutBtn" class="btn btn-sm btn-outline-light">
-          <i class="bi bi-box-arrow-right"></i>
-        </button>
-      </div>
+        <!-- 👤 USUARIO -->
+        <div class="user-profile d-flex align-items-center justify-content-between">
+          <div class="d-flex align-items-center">
+            <div id="userAvatar" class="user-avatar"></div>
+            <div class="user-info ms-2">
+              <div id="userName" class="user-name"></div>
+              <div id="userEmail" class="user-email small text-white"></div>
+            </div>
+          </div>
 
-    </div>
-
-    <!-- 🔥 CENTRO -->
-    <div class="col-12 col-md-9 col-xl-7 p-4 email-list">
-
-      <!-- Botón hamburguesa solo móvil -->
-<div class="d-md-none mb-3" style="height: 48px;">
-  <button class="btn btn-outline-dark" id="menuToggle" style="position: fixed; top: 15px; left: 15px; z-index: 1030; width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center;">
-    <i class="bi bi-list fs-4"></i>
-        </button>
-      </div>
-
-      <div class="container-fluid">
-        <div class="row" id="emailList2"></div>
-      </div>
-    </div>
-
-    <!-- 🟢 DERECHA -->
-    <div class="col-12 col-xl-3 p-4">
-
-
-      <div class="cards-container">
-        <h5 class="text-center mb-3 text-danger">⛔ Faltas</h5>
-        <div class="email-cards-stack" id="emailList"></div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<!-- ================= MODAL ================= -->
-<div class="modal fade" id="emailModal" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content rounded-4 shadow">
-
-      <div class="modal-header">
-        <h5 class="modal-title" id="modalSubject">Asunto</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-
-      <div class="modal-body">
-        <div class="mb-2">
-          <span id="modalTag" class="badge"></span>
+          <button id="logoutBtn" class="btn btn-sm btn-outline-light">
+            <i class="bi bi-box-arrow-right"></i>
+          </button>
         </div>
 
-        <div class="mb-2">
-          <strong>De:</strong> <span id="modalFrom"></span>
-        </div>
-
-        <div class="mb-2 text-muted small">
-          <span id="modalDate"></span>
-        </div>
-
-        <hr>
-
-        <div id="modalBody" style="white-space: pre-wrap;"></div>
       </div>
 
-      <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">
-          Cerrar
-        </button>
+      <!-- 🔥 CENTRO -->
+      <div class="col-lg-9 col-md-12 col-xl-7 p-4 email-list">
+
+        <!-- Botón hamburguesa solo móvil -->
+        <div class="d-md-none mb-3" style="height: 48px;">
+          <button class="btn btn-outline-dark" id="menuToggle"
+            style="position: fixed; top: 15px; left: 15px; z-index: 1030; width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center;">
+            <i class="bi bi-list fs-4"></i>
+          </button>
+        </div>
+
+        <div class="container-fluid">
+          <div class="row" id="emailList2"></div>
+        </div>
+      </div>
+
+      <!-- 🟢 DERECHA -->
+      <div class="col-12 col-xl-3 p-4">
+
+
+        <div class="cards-container">
+          <h5 class="text-center mb-3 text-danger">⛔ Faltas</h5>
+          <div class="email-cards-stack" id="emailList"></div>
+        </div>
       </div>
 
     </div>
   </div>
-</div>
 
-<!-- Bootstrap -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="./dashboard.js"></script>
+  <!-- ================= MODAL ================= -->
+  <div class="modal fade" id="emailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content rounded-4 shadow">
 
-<!-- ===== SIDEBAR CONTROL ===== -->
-<script>
-const sidebar = document.getElementById("sidebar");
-const overlay = document.getElementById("sidebarOverlay");
-const toggleBtn = document.getElementById("menuToggle");
-const closeBtn = document.getElementById("sidebarClose");
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalSubject">Asunto</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
 
-function openSidebar() {
-  sidebar.classList.add("active");
-  overlay.classList.add("active");
-}
+        <div class="modal-body">
+          <div class="mb-2">
+            <span id="modalTag" class="badge"></span>
+          </div>
 
-function closeSidebar() {
-  sidebar.classList.remove("active");
-  overlay.classList.remove("active");
-}
+          <div class="mb-2">
+            <strong>De:</strong> <span id="modalFrom"></span>
+          </div>
 
-function toggleSidebar() {
-  if (sidebar.classList.contains("active")) {
-    closeSidebar();
-  } else {
-    openSidebar();
-  }
-}
+          <div class="mb-2 text-muted small">
+            <span id="modalDate"></span>
+          </div>
 
-if (toggleBtn) toggleBtn.addEventListener("click", toggleSidebar);
-if (closeBtn) closeBtn.addEventListener("click", closeSidebar);
-if (overlay) overlay.addEventListener("click", closeSidebar);
-</script>
+          <hr>
+
+          <div id="modalBody" style="white-space: pre-wrap;"></div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">
+            Cerrar
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="./dashboard.js"></script>
+
+  <!-- ===== SIDEBAR CONTROL ===== -->
+  <script>
+    const sidebar = document.getElementById("sidebar");
+    const overlay = document.getElementById("sidebarOverlay");
+    const toggleBtn = document.getElementById("menuToggle");
+    const closeBtn = document.getElementById("sidebarClose");
+
+    function openSidebar() {
+      sidebar.classList.add("active");
+      overlay.classList.add("active");
+    }
+
+    function closeSidebar() {
+      sidebar.classList.remove("active");
+      overlay.classList.remove("active");
+    }
+
+    function toggleSidebar() {
+      if (sidebar.classList.contains("active")) {
+        closeSidebar();
+      } else {
+        openSidebar();
+      }
+    }
+
+    if (toggleBtn) toggleBtn.addEventListener("click", toggleSidebar);
+    if (closeBtn) closeBtn.addEventListener("click", closeSidebar);
+    if (overlay) overlay.addEventListener("click", closeSidebar);
+  </script>
 
 </body>
+
 </html>

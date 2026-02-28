@@ -1,94 +1,204 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="/Frontend/windows/css/coders.css">
-    <title>Coders</title>
+    <title>InboxIQ | Coders</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" />
+    <link rel="stylesheet" href="../dashboard/style.css" />
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        body {
+            overflow-x: hidden;
+        }
+
+        /* ===== SIDEBAR GRADIENTE VERTICAL ===== */
+        .sidebar {
+            background: linear-gradient(180deg,
+                    rgba(108, 99, 255, 1) 0%,
+                    rgba(43, 58, 103, 1) 100%);
+            color: white;
+            min-height: 100vh;
+            transition: transform 0.3s ease;
+        }
+
+        /* ===== MOBILE SIDEBAR ===== */
+        @media (max-width: 767px) {
+
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 260px;
+                z-index: 1050;
+                transform: translateX(-100%);
+                pointer-events: none;
+                visibility: hidden;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+                pointer-events: all;
+                visibility: visible;
+            }
+        }
+
+        /* ===== OVERLAY ===== */
+        .sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1040;
+            display: none;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+        }
+    </style>
 </head>
-<body class="bg-body">
+
+<body>
 
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
     <div class="container-fluid p-0">
         <div class="row g-0 min-vh-100">
 
+            <!-- 🔵 SIDEBAR -->
             <div class="col-12 col-md-3 col-xl-2 sidebar position-relative" id="sidebar">
-                <button id="sidebarClose" class="d-md-none btn btn-link text-white position-absolute" style="top:15px;right:15px;font-size:20px;padding:0; border:none;">
+
+                <button id="sidebarClose" class="d-md-none btn btn-link text-white position-absolute"
+                    style="top:15px;right:15px;font-size:20px;padding:0;">
                     <i class="bi bi-x-lg"></i>
                 </button>
 
-                <div class="logo p-4 fw-bold fs-4">
-                    <i class="bi bi-inbox-fill"></i> Inboxer
+                <div class="logo">
+                    <img class="img-fluid" src="../../assets/logo/logo inboxqa2.png" alt="">
                 </div>
 
-                <ul class="nav flex-column p-3">
-                    <li class="nav-item mb-2">
-                        <a href="/Frontend/windows/dashboard/dashboard.html" class="nav-link text-white returnDash">
-                            <i class="bi bi-inbox me-2"></i> Inbox
-                        </a>
+                <ul class="nav-menu">
+                    <li class="nav-item inbox">
+                        <i class="bi bi-inbox"></i> INBOX
                     </li>
-                    <li class="nav-item mb-2">
-                        <a href="#" class="nav-link text-white active btn-purple rounded">
-                            <i class="bi bi-people me-2"></i> Coders
-                        </a>
-                    </li>
+
+                    <button id="codersBtn"
+                        class="nav-item active btn btn-link text-white w-100 text-start btn-primary text-decoration-none">
+                        <i class="bi bi-people"></i> CODERS
+                    </button>
                 </ul>
 
-                <div class="user-profile p-3 position-absolute bottom-0 w-100 border-top">
+                <!-- 👤 USUARIO -->
+                <div class="user-profile d-flex align-items-center justify-content-between">
                     <div class="d-flex align-items-center">
-                        <div class="user-avatar bg-light rounded-circle" style="width: 40px; height: 40px;"></div>
-                        <div class="ms-2">
-                            <div class="small fw-bold">Usuario</div>
-                            <div class="small opacity-75">user@example.com</div>
+                        <div id="userAvatar" class="user-avatar"></div>
+                        <div class="user-info ms-2">
+                            <div id="userName" class="user-name"></div>
+                            <div id="userEmail" class="user-email small text-white"></div>
                         </div>
+                    </div>
+
+                    <button id="logoutBtn" class="btn btn-sm btn-outline-light">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                </div>
+
+            </div>
+            <!-- 🔥 CONTENIDO CENTRAL -->
+            <div class="col-12 col-md-9 col-xl-10 p-4">
+
+                <!-- Botón hamburguesa solo móvil -->
+                <div class="d-md-none mb-3" style="height: 48px;">
+                    <button class="btn btn-outline-dark" id="menuToggle"
+                        style="position: fixed; top: 15px; left: 15px; z-index: 1030; width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-list fs-4"></i>
+                    </button>
+                </div>
+
+                <div class="container-fluid">
+                    <div class="card shadow p-4">
+
+                        <div class="card-header bg-white">
+                            <h3>Buscar Coder</h3>
+                            <form id="form-busqueda" class="d-flex gap-3 mt-3 mb-3">
+                                <input id="input-documento" class="form-control" type="search"
+                                    placeholder="Ingresa el documento de identidad">
+                                <button type="submit" class="btn w-25 btn-primary">Buscar</button>
+                            </form>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>Last Name</th>
+                                        <th>Document</th>
+                                        <th>Email</th>
+                                        <th>Cel</th>
+                                        <th>Clan</th>
+                                        <th>Shift</th>
+                                        <th>Grade</th>
+                                        <th>Profile</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="lista-coders">
+                                </tbody>
+                            </table>
+                        </div>
+
                     </div>
                 </div>
             </div>
 
-            <div class="col-12 col-md-9 col-xl-10 p-4">
+        </div>
+    </div>
 
-                <div class="d-md-none mb-3">
-                    <button class="btn btn-dark" id="menuToggle">
-                        <i class="bi bi-list"></i>
-                    </button>
-                </div>
+    <!-- Bootstrap -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-                <div class="card shadow p-4">
-                    
-                    <div class="card-header bg-white">
-                        <h3>Buscar Coder</h3>
-                        <form id="form-busqueda" class="d-flex gap-3 mt-3 mb-3">
-                            <input id="input-documento" class="form-control" type="search" placeholder="Ingresa el documento de identidad">
-                            <button type="submit" class="btn w-25 btn-purple">Buscar</button>
-                        </form>
-                    </div>
-                    
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Name</th>
-                                    <th>Last Name</th>
-                                    <th>Document</th>
-                                    <th>Email</th>
-                                    <th>Cel</th>
-                                    <th>Clan</th>
-                                    <th>Shift</th>
-                                    <th>Grade</th>
-                                    <th>Profile</th>
-                                </tr>
-                            </thead>
-                            <tbody id="lista-coders">
-                                </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div> </div> </div> <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Sidebar Control -->
+    <script>
+        const sidebar = document.getElementById("sidebar");
+        const overlay = document.getElementById("sidebarOverlay");
+        const toggleBtn = document.getElementById("menuToggle");
+        const closeBtn = document.getElementById("sidebarClose");
+
+        function openSidebar() {
+            sidebar.classList.add("active");
+            overlay.classList.add("active");
+        }
+
+        function closeSidebar() {
+            sidebar.classList.remove("active");
+            overlay.classList.remove("active");
+        }
+
+        function toggleSidebar() {
+            if (sidebar.classList.contains("active")) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
+        }
+
+        if (toggleBtn) toggleBtn.addEventListener("click", toggleSidebar);
+        if (closeBtn) closeBtn.addEventListener("click", closeSidebar);
+        if (overlay) overlay.addEventListener("click", closeSidebar);
+    </script>
 
     <script src="main.js"></script>
+
 </body>
+
 </html>

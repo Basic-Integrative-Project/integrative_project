@@ -1,22 +1,33 @@
-// server.js - Node 24 con node-fetch@2 (require)
+// server.js - Node 24 + OpenAI (gpt-4o-mini)
+
 const express = require("express");
 const cors = require("cors");
-const fetch = require("node-fetch");
 const mysql = require("mysql2");
 const axios = require("axios");
+const OpenAI = require("openai");
 
-require('dotenv').config();
+require("dotenv").config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ─────────────────────────────────────────────
+// 🔹 OpenAI Config
+// ─────────────────────────────────────────────
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// ─────────────────────────────────────────────
+// 🔹 Configuración General
+// ─────────────────────────────────────────────
+
 app.get("/", (req, res) => {
   res.send("Servidor funcionando");
 });
 
-// firebase config
-app.get('/firebase-config', (req, res) => {
+app.get("/firebase-config", (req, res) => {
   res.json({
     apiKey: process.env.API_KEY,
     authDomain: process.env.AUTH_DOMAIN,
@@ -27,8 +38,6 @@ app.get('/firebase-config', (req, res) => {
   });
 });
 
-const OLLAMA_URL = "http://localhost:11434/api/generate";
-
 const VALID_TAGS = [
   "reunion",
   "faltas_justificadas",
@@ -37,30 +46,33 @@ const VALID_TAGS = [
   "alertas",
 ];
 
+// ─────────────────────────────────────────────
+// 🔹 Fallback por reglas
+// ─────────────────────────────────────────────
+
 function ruleBasedFallback(subject, text) {
   const s = (subject + " " + text).toLowerCase();
 
   if (
     /(notificación|notification|alerta|promoción|oferta|descuento|newsletter|no-reply|noreply|marketing|publicidad|facebook|instagram|twitter|linkedin|github|actualización de app)/.test(
-      s,
+      s
     )
   ) {
     return "alertas";
   }
 
-  if (
-    /(reunión|reunion|meet|call|zoom|teams|agendar|calendario|llamada)/.test(s)
-  ) {
+  if (/(reunión|reunion|meet|call|zoom|teams|agendar|calendario|llamada)/.test(s)) {
     return "reunion";
   }
 
   const esIncapacidad =
     /(baja médica|certificado médico|incapacidad|accidente|enfermedad|médico|hospital|urgencia|duelo|matrimonio|nacimiento|paternidad|maternidad|judicial|citación)/.test(
-      s,
+      s
     );
+
   const esFaltaSinJustificacion =
     /(me qued[eé]\s+dormid[oa]|me dorm[ií]|no vine|no fui|no asist[ií]|falte sin avisar|no avis[eé]|sin permiso|olvid[eé]|llegu[eé] tarde|no ten[ií]a ganas)/.test(
-      s,
+      s
     );
 
   if (esIncapacidad) return "faltas_justificadas";
@@ -69,106 +81,65 @@ function ruleBasedFallback(subject, text) {
   return "importantes";
 }
 
-function buildClassificationPrompt(subject, text) {
-  return `
-Eres un asistente de RRHH experto en clasificar correos laborales.
-Analiza el contenido y clasifica en UNA de estas 5 categorías exactas:
+// ─────────────────────────────────────────────
+// 🔹 Clasificación con OpenAI
+// ─────────────────────────────────────────────
 
-**CATEGORÍAS:**
-
-1. **reunion**: Coordinación de encuentros de trabajo, citas profesionales, videollamadas.
-   - Ejemplos: "Reunión de equipo mañana", "Link de Zoom", "Confirmo asistencia"
-
-2. **faltas_justificadas**: Ausencias con causa legal/médica válida.
-   - Incluye: Enfermedad con certificado, baja médica, incapacidad, duelo, permiso paternidad/maternidad, matrimonio, obligaciones legales.
-   - Clave: Motivo válido con documentación.
-
-3. **faltas_injustificadas**: Ausencias sin causa válida o por negligencia.
-   - Incluye: No asistir sin avisar, llegadas tarde sin causa, "me quedé dormido", "no tenía ganas de ir", "olvidé que trabajaba".
-   - Clave: Sin justificación legal/médica, negligencia del empleado.
-
-4. **importantes**: Correos laborales relevantes que no encajan en las anteriores.
-   - Ejemplos: Informes, comunicados de empresa, tareas, proyectos.
-
-5. **alertas**: Notificaciones automáticas, spam, correos no importantes que deben ocultarse.
-   - Incluye: Notificaciones de apps (GitHub, Facebook), newsletters, promociones, ofertas, actualizaciones de software.
-   - Clave: Generado automáticamente, no requiere atención directa.
-
-**INSTRUCCIONES:**
-- Responde SOLO con: reunion, faltas_justificadas, faltas_injustificadas, importantes, alertas
-- Sin comillas, puntos, ni explicaciones
-- Analiza contexto: ¿Es personal o automatizado? ¿Hay documentación médica?
-
-CORREO:
-Asunto: "${subject}"
-Cuerpo: "${text.substring(0, 1000)}"
-
-Etiqueta:`;
-}
-
-// Función de clasificación reutilizable (usada por ambos endpoints)
 async function classifySingleEmail(subject = "", text = "") {
   const cleanText = text.replace(/\s+/g, " ").trim();
-  const prompt = buildClassificationPrompt(subject, cleanText);
 
-  const response = await fetch(OLLAMA_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "llama3.1:8b",
-      prompt: prompt,
-      stream: false,
-      options: {
-        temperature: 0.1,
-        num_predict: 25,
-      },
-    }),
-  });
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0,
+      max_tokens: 10,
+      messages: [
+        {
+          role: "system",
+          content: `
+Eres un clasificador automático de correos laborales.
+Responde SOLO con una de estas etiquetas exactas:
+reunion
+faltas_justificadas
+faltas_injustificadas
+importantes
+alertas
+Sin explicación.
+`,
+        },
+        {
+          role: "user",
+          content: `
+Asunto: ${subject}
+Cuerpo: ${cleanText.substring(0, 1000)}
+`,
+        },
+      ],
+    });
 
-  if (!response.ok) throw new Error(`Ollama HTTP ${response.status}`);
+    let tag = response.choices[0].message.content
+      .toLowerCase()
+      .trim()
+      .replace(/["'`.]/g, "");
 
-  const data = await response.json();
-  let rawResponse = (data?.response || "").trim();
+    if (!VALID_TAGS.includes(tag)) {
+      console.log(`[Fallback LLM inválido]: "${tag}"`);
+      tag = ruleBasedFallback(subject, text);
+    }
 
-  const tagMappings = {
-    falta_justificada: "faltas_justificadas",
-    faltajustificada: "faltas_justificadas",
-    justificada: "faltas_justificadas",
-    falta_injustificada: "faltas_injustificadas",
-    faltasinjustificada: "faltas_injustificadas",
-    injustificada: "faltas_injustificadas",
-    reunión: "reunion",
-    meeting: "reunion",
-    importante: "importantes",
-    alerta: "alertas",
-    spam: "alertas",
-    notificación: "alertas",
-    notificacion: "alertas",
-  };
+    console.log(`[OpenAI]: "${tag}"`);
 
-  let tag = rawResponse
-    .toLowerCase()
-    .replace(/["'\\`.]/g, "")
-    .replace(/^(etiqueta|tag|categoría|clasificación|respuesta):\s*/i, "")
-    .replace(/\s+/g, "_")
-    .replace(/_{2,}/g, "_")
-    .replace(/^_|_$/g, "")
-    .split("\n")[0]
-    .trim();
-
-  if (tagMappings[tag]) tag = tagMappings[tag];
-
-  console.log(`[LLM]: "${rawResponse}" → "${tag}"`);
-
-  if (!VALID_TAGS.includes(tag)) {
-    console.log(`[Fallback] "${tag}" inválido`);
-    tag = ruleBasedFallback(subject, text);
+    return tag;
+  } catch (error) {
+    console.error("Error OpenAI:", error.message);
+    return ruleBasedFallback(subject, text);
   }
-
-  return tag;
 }
 
-// ─── ENDPOINT INDIVIDUAL (mantener por compatibilidad) ────────────────────────
+// ─────────────────────────────────────────────
+// 🔹 ENDPOINT INDIVIDUAL
+// ─────────────────────────────────────────────
+
 app.post("/classify-email", async (req, res) => {
   const { subject = "", text = "" } = req.body;
 
@@ -184,7 +155,6 @@ app.post("/classify-email", async (req, res) => {
       source: "llm",
     });
   } catch (err) {
-    console.error("[Error]:", err.message);
     const fallbackTag = ruleBasedFallback(subject, text);
     res.json({
       tag: fallbackTag,
@@ -195,9 +165,10 @@ app.post("/classify-email", async (req, res) => {
   }
 });
 
-// ─── ENDPOINT BATCH (nuevo: clasifica todos los correos de una sola vez) ──────
-// Recibe: { emails: [{ subject, text }, ...] }
-// Retorna: [{ tag, hidden, source }, ...]
+// ─────────────────────────────────────────────
+// 🔹 ENDPOINT BATCH
+// ─────────────────────────────────────────────
+
 app.post("/classify-emails", async (req, res) => {
   const { emails } = req.body;
 
@@ -205,16 +176,19 @@ app.post("/classify-emails", async (req, res) => {
     return res.status(400).json({ error: "Se requiere un array de emails" });
   }
 
-  // Clasificar todos en paralelo
   const results = await Promise.all(
     emails.map(async ({ subject = "", text = "" }) => {
       try {
         const tag = await classifySingleEmail(subject, text);
         return { tag, hidden: tag === "alertas", source: "llm" };
       } catch (err) {
-        console.error("[Error batch]:", err.message);
         const tag = ruleBasedFallback(subject, text);
-        return { tag, hidden: tag === "alertas", source: "fallback", error: err.message };
+        return {
+          tag,
+          hidden: tag === "alertas",
+          source: "fallback",
+          error: err.message,
+        };
       }
     })
   );
@@ -222,18 +196,23 @@ app.post("/classify-emails", async (req, res) => {
   res.json(results);
 });
 
+// ─────────────────────────────────────────────
+// 🔹 TEST
+// ─────────────────────────────────────────────
+
 app.get("/test", (req, res) => {
   res.json({
-    message: "Clasificador activo",
+    message: "Clasificador activo con OpenAI",
     categorias: VALID_TAGS,
     ocultables: ["alertas"],
     node_version: process.version,
   });
 });
 
-// zona coders
+// ─────────────────────────────────────────────
+// 🔹 MYSQL CONFIG
+// ─────────────────────────────────────────────
 
-// Configuración del pool de conexiones a la base de datos
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -243,6 +222,9 @@ const pool = mysql.createPool({
   connectionLimit: 10,
 });
 
+// ─────────────────────────────────────────────
+// 🔹 CODERS API
+// ─────────────────────────────────────────────
 // 1. OBTENER CODERS (CON FILTRO POR DOCUMENTO PARA EL BUSCADOR)
 app.get("/api/coders", (req, res) => {
   const documentoBusqueda = req.query.document;
@@ -333,7 +315,10 @@ app.get("/history_coder/:id_app", (req, res) => {
   });
 });
 
-// enviar correo predeterminado
+// ─────────────────────────────────────────────
+// 🔹 N8N WEBHOOK
+// ─────────────────────────────────────────────
+
 app.post("/send-by-id", async (req, res) => {
   try {
     const response = await axios.post(
@@ -342,13 +327,14 @@ app.post("/send-by-id", async (req, res) => {
     );
 
     res.json(response.data);
-
   } catch (error) {
-    console.error(error.response?.data || error.message);
     res.status(500).json({ error: "Error enviando a n8n" });
   }
 });
 
+// ─────────────────────────────────────────────
+// 🔹 START SERVER
+// ─────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

@@ -33,62 +33,18 @@ async function initApp() {
 
 initApp();
 
-// 🔹 Clasificación IA + fallback local con 5 categorías
-async function classifyEmail(mail) {
-  try {
-    const res = await fetch("http://localhost:3000/classify-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        subject: mail.subject || "",
-        text: mail.text || "",
-      }),
-    });
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    const data = await res.json();
-    return data.tag || "importantes";
-  } catch (err) {
-    console.error("Error conectando a Ollama, usando fallback local:", err);
-
-    const text = ((mail.subject || "") + " " + (mail.text || "")).toLowerCase();
-
-    if (/(notificación|notification|alerta|promoción|oferta|descuento|newsletter|no-reply|facebook|instagram|twitter|linkedin|github|actualización|marketing)/.test(text)) {
-      return "alertas";
-    }
-
-    if (/(reunión|reunion|meeting|zoom|teams|meet|call|agendar|calendario|cita|llamada)/.test(text)) {
-      return "reunion";
-    }
-
-    if (/(baja médica|certificado médico|incapacidad|accidente|enfermedad|médico|hospital|urgencia|duelo|matrimonio|nacimiento|paternidad|maternidad|judicial|citación|calamidad)/.test(text)) {
-      return "faltas_justificadas";
-    }
-
-    if (/(no vine|no fui|no asistí|falte sin avisar|no avisé|sin permiso|me quedé en casa|me quede en casa|me dormí|me dormi|olvidé|olvide|llegué tarde|llegue tarde|no tenía ganas|no tenia ganas)/.test(text)) {
-      return "faltas_injustificadas";
-    }
-
-    return "importantes";
-  }
-}
-
 let currentUser = null;
 
-// 🔐 LOGIN CON GOOGLE + CONEXIÓN AUTOMÁTICA A N8N
+// 🔐 LOGIN CON GOOGLE + CLASIFICACIÓN COMPLETA
 function setupLogin() {
   document.getElementById("loginBtn")?.addEventListener("click", async () => {
     try {
 
-      // 🔥 Loader bonito
       Swal.fire({
         title: "Conectando...",
         html: "Iniciando sesión y sincronizando correos 📩",
         allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
-        }
+        didOpen: () => Swal.showLoading()
       });
 
       // 🔐 LOGIN GOOGLE
@@ -101,7 +57,7 @@ function setupLogin() {
         createdAt: new Date(),
       });
 
-      // 🔗 CONECTAR A N8N
+      // 🔗 OBTENER CORREOS DESDE N8N
       const n8nUrl =
         "https://n8n.andrescortes.dev/webhook/get-mails?uid=" +
         encodeURIComponent(currentUser.uid);
@@ -129,39 +85,61 @@ function setupLogin() {
         return;
       }
 
-      // ✅ Clasificar todos los correos en paralelo (antes era secuencial → muy lento)
-      const processedEmails = await Promise.all(
-        emails.map(async (mail) => {
-          const tag = await classifyEmail(mail);
+      // 🔥 CLASIFICACIÓN EN LOTE
+      const batchRes = await fetch("http://localhost:3000/classify-emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emails: emails.map(m => ({
+            subject: m.subject || "",
+            text: m.text || ""
+          }))
+        }),
+      });
 
-          let colorClass = "primary";
-          if (tag === "alertas") colorClass = "secondary";
-          if (tag === "reunion") colorClass = "warning";
-          if (tag === "faltas_justificadas") colorClass = "success";
-          if (tag === "faltas_injustificadas") colorClass = "danger";
-          if (tag === "importantes") colorClass = "info";
+      if (!batchRes.ok) {
+        throw new Error(`Error backend: ${batchRes.status}`);
+      }
 
-          return { ...mail, tag, colorClass };
+      const batchData = await batchRes.json();
+
+      const colorMap = {
+        alertas: "secondary",
+        reunion: "warning",
+        faltas_justificadas: "success",
+        faltas_injustificadas: "danger",
+        importantes: "info",
+      };
+
+      // 🔥 PROCESAR Y FILTRAR ALERTAS AQUÍ
+      const processedEmails = emails
+        .map((mail, index) => {
+          const tag = batchData[index]?.tag || "importantes";
+
+          return {
+            ...mail,
+            tag,
+            colorClass: colorMap[tag] || "info",
+            revisado: false,
+          };
         })
-      );
+        .filter(mail => mail.tag !== "alertas");
 
       localStorage.setItem("dashboardEmails", JSON.stringify(processedEmails));
 
-      // ✅ Cerrar loader
       Swal.close();
 
-      // 🚀 Redirigir
       window.location.href = "./windows/dashboard/dashboard.html";
 
     } catch (error) {
+
+      console.error("Error en login:", error);
 
       Swal.fire({
         icon: "error",
         title: "Error",
         text: error.message
       });
-
-      console.error("Error en login:", error);
     }
   });
 }

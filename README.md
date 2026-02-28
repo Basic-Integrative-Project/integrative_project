@@ -37,7 +37,7 @@ Open de folder `Backend` and run the following command to install Express, MySQL
 
 1. npm init -y
 2. npm install
-3. npm install express mysql2 dotenv cors node-fetch axios
+3. npm install express mysql2 dotenv cors node-fetch axios openai
 
 into package.json, something like this:
 ```
@@ -47,7 +47,8 @@ into package.json, something like this:
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "mysql2": "^3.17.4",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "openai": "^6.25.0"
   }
 ```
 
@@ -68,6 +69,8 @@ Create a file called ``.env`` in the project root `Backend` folder **(this file 
   DB_PASSWORD=YOUR_DB_PASSWORD
   DB_NAME=YOUR_DB_NAME
   PORT=YOUR_PORT
+
+  OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxx
 ```
 ### 4. Execution
 

@@ -4,44 +4,228 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="/Frontend/windows/css/coder_profile.css">
-    <title>Perfil del Coder</title>
+    <title>InboxIQ | Coder</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="../dashboard/style.css">
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        /* ===== Gradiente principal de la app ===== */
+        :root {
+            --gradient-primary: linear-gradient(180deg, rgba(108, 99, 255, 1) 0%, rgba(43, 58, 103, 1) 100%);
+        }
+
+        /* ===== Botones principales ===== */
+        .btn-purple {
+            background: var(--gradient-primary);
+            color: #fff;
+            border: none;
+        }
+
+        .btn-purple:hover {
+            opacity: 0.9;
+        }
+
+        /* ===== Badges de nota con gradiente ===== */
+        .badge.bg-success {
+            background: var(--gradient-primary);
+            color: #fff;
+        }
+
+        .badge.bg-danger {
+            background: linear-gradient(180deg, #ff5f5f, #c20000);
+            color: #fff;
+        }
+
+        .badge.bg-warning {
+            background: linear-gradient(180deg, #ffd966, #e6b800);
+            color: #000;
+        }
+
+        /* ===== Headers de modales ===== */
+        .modal-header-gradient {
+            background: var(--gradient-primary);
+            color: #fff;
+        }
+
+        /* ===== Ajustes generales ===== */
+        textarea[readonly] {
+            background-color: #f8f9fa;
+        }
+        h2{
+            color: #000;
+        }
+
+        /* Opcional: hover para filas de tabla */
+        .table tbody tr:hover {
+            background-color: rgba(108, 99, 255, 0.1);
+        }
+
+        /* Perfil container central */
+        #perfil-container .card-header {
+            color: #fff;
+        }
+
+        body {
+            overflow-x: hidden;
+        }
+
+        /* ===== SIDEBAR GRADIENTE VERTICAL ===== */
+        .sidebar {
+            background: linear-gradient(180deg,
+                    rgba(108, 99, 255, 1) 0%,
+                    rgba(43, 58, 103, 1) 100%);
+            color: white;
+            min-height: 100vh;
+            transition: transform 0.3s ease;
+        }
+
+        /* ===== MOBILE SIDEBAR ===== */
+        @media (max-width: 767px) {
+
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 260px;
+                z-index: 1050;
+                transform: translateX(-100%);
+                pointer-events: none;
+                visibility: hidden;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+                pointer-events: all;
+                visibility: visible;
+            }
+        }
+
+        /* ===== OVERLAY ===== */
+        .sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1040;
+            display: none;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+        }
+    </style>
 </head>
 
-<body class="bg-body">
-    <div class="container mt-5">
-        <div id="perfil-container"></div>
+<body>
 
-        <div class="mt-4 shadow card">
-            <div class="card-body">
-                <h5>Citas del Coder</h5>
-                <table class="table table-striped align-middle">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Motivo</th>
-                            <th>Profesional</th>
-                            <th>Fecha</th>
-                            <th>Estado</th>
-                            <th>Acción</th>
-                            <th>Historia</th>
-                        </tr>
-                    </thead>
-                    <tbody id="citas-coder"></tbody>
-                </table>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="container-fluid p-0">
+        <div class="row g-0 min-vh-100">
+
+            <!-- 🔵 SIDEBAR -->
+            <div class="col-12 col-md-3 col-xl-2 sidebar position-relative" id="sidebar">
+
+                <button id="sidebarClose" class="d-md-none btn btn-link text-white position-absolute"
+                    style="top:15px;right:15px;font-size:20px;padding:0;">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+
+                <div class="logo">
+                    <img class="img-fluid" src="../../assets/logo/logo inboxqa2.png" alt="">
+                </div>
+
+                <ul class="nav-menu">
+                    <li class="nav-item inbox">
+                        <i class="bi bi-inbox"></i> INBOX
+                    </li>
+
+                    <button id="codersBtn"
+                        class="nav-item active btn btn-link text-white w-100 text-start btn-primary text-decoration-none">
+                        <i class="bi bi-people"></i> CODERS
+                    </button>
+                </ul>
+
+                <!-- 👤 USUARIO -->
+                <div class="user-profile d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <div id="userAvatar" class="user-avatar"></div>
+                        <div class="user-info ms-2">
+                            <div id="userName" class="user-name"></div>
+                            <div id="userEmail" class="user-email small text-white"></div>
+                        </div>
+                    </div>
+
+                    <button id="logoutBtn" class="btn btn-sm btn-outline-light">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                </div>
+
             </div>
+
+            <!-- 🔥 CONTENIDO CENTRAL -->
+            <div class="col-12 col-md-9 col-xl-10 p-4">
+
+                <!-- Botón hamburguesa solo móvil -->
+                <div class="d-md-none mb-3" style="height: 48px;">
+                    <button class="btn btn-outline-dark" id="menuToggle"
+                        style="position: fixed; top: 15px; left: 15px; z-index: 1030; width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-list fs-4"></i>
+                    </button>
+                </div>
+
+                <!-- CONTENIDO DEL PERFIL -->
+                <div class="container-fluid">
+                    <div id="perfil-container" class="mb-4"></div>
+
+                    <div class="card shadow p-4">
+
+                        <div class="card-body">
+                            <h5>Citas del Coder</h5>
+                            <div class="table-responsive" style="max-height: calc(100vh - 250px); overflow-y: auto;">
+                                <table class="table table-striped align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Motivo</th>
+                                            <th>Profesional</th>
+                                            <th>Fecha</th>
+                                            <th>Estado</th>
+                                            <th>Acción</th>
+                                            <th>Historia</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="citas-coder"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-3">
+                        <a href="index.html" class="btn btn-secondary">Volver</a>
+                    </div>
+
+                </div>
+
+            </div>
+
         </div>
-        <div class="text-center mt-3"><a href="index.html" class="btn btn-secondary">Volver</a></div>
     </div>
 
+    <!-- MODALES (igual que tu original) -->
     <div class="modal fade" id="modalCita" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title ">Asignar Cita</h5>
-                    <button type="button" class="btn-close btn-close-white " data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title">Asignar Cita</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <form id="form-cita">
@@ -109,9 +293,41 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="profile.js"></script>
+    <script type="module" src="profile.js"></script>
+
+    <!-- Sidebar Control -->
+    <script>
+        const sidebar = document.getElementById("sidebar");
+        const overlay = document.getElementById("sidebarOverlay");
+        const toggleBtn = document.getElementById("menuToggle");
+        const closeBtn = document.getElementById("sidebarClose");
+
+        function openSidebar() {
+            sidebar.classList.add("active");
+            overlay.classList.add("active");
+        }
+
+        function closeSidebar() {
+            sidebar.classList.remove("active");
+            overlay.classList.remove("active");
+        }
+
+        function toggleSidebar() {
+            if (sidebar.classList.contains("active")) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
+        }
+
+        if (toggleBtn) toggleBtn.addEventListener("click", toggleSidebar);
+        if (closeBtn) closeBtn.addEventListener("click", closeSidebar);
+        if (overlay) overlay.addEventListener("click", closeSidebar);
+    </script>
+
 </body>
 
 </html>

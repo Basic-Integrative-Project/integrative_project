@@ -1,3 +1,112 @@
+// ==========================
+// 🔹 OBTENER CONFIGURACIÓN
+// ==========================
+async function loadFirebaseConfig() {
+    const response = await fetch("http://localhost:3000/firebase-config");
+    if (!response.ok) {
+        throw new Error("No se pudo obtener la configuración de Firebase");
+    }
+    return await response.json();
+}
+
+// ==========================
+// 🔒 CACHE EN MEMORIA
+// ==========================
+let emailsCache = [];
+
+function saveEmails(emails) {
+    emailsCache = emails;
+}
+
+function loadEmails() {
+    return emailsCache;
+}
+
+function loadFromStorage() {
+    const stored = localStorage.getItem("dashboardEmails");
+    if (!stored) return [];
+    try {
+        return JSON.parse(stored);
+    } catch {
+        return [];
+    }
+}
+
+window.addEventListener("beforeunload", () => {
+    emailsCache = [];
+});
+
+// ==========================
+// 🔥 INICIALIZAR FIREBASE
+// ==========================
+async function initApp() {
+    try {
+        const firebaseConfig = await loadFirebaseConfig();
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+
+        window.auth = firebase.auth();
+        console.log("✅ Firebase inicializado");
+
+        setupAuthListener();
+        setupLogoutButton();
+
+    } catch (error) {
+        console.error("Error inicializando Firebase:", error);
+    }
+}
+
+initApp();
+
+// ==========================
+// 👤 AUTH LISTENER
+// ==========================
+function setupAuthListener() {
+    auth.onAuthStateChanged((user) => {
+        if (!user) {
+            window.location.href = "../../index.html";
+            return;
+        }
+
+        const avatar = document.getElementById("userAvatar");
+        const name = document.getElementById("userName");
+        const email = document.getElementById("userEmail");
+
+        if (name) name.textContent = user.displayName || "Usuario";
+        if (email) email.textContent = user.email;
+
+        if (avatar) {
+            avatar.textContent = (
+                user.displayName?.charAt(0) ||
+                user.email?.charAt(0) ||
+                "U"
+            ).toUpperCase();
+        }
+
+        // 🔹 CARGAR CORREOS DESDE LOCALSTORAGE
+        const emails = loadFromStorage();
+    });
+}
+
+// ==========================
+// 🔑 LOGOUT
+// ==========================
+function setupLogoutButton() {
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener("click", () => {
+            localStorage.removeItem("dashboardEmails");
+            auth.signOut()
+                .then(() => window.location.href = "../../index.html")
+                .catch(err => console.error("Error cerrando sesión:", err));
+        });
+    }
+}
+
+
 document.addEventListener("DOMContentLoaded", () => {
     // 1. Selección de elementos principales del DOM
     const container = document.getElementById("perfil-container"); // Contenedor del perfil [cite: 14, 219]
@@ -32,12 +141,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
             container.innerHTML = `
                 <div class="card shadow">
-                    <div class="card-header bg-title text-white text-center">
+                    <div class="card-header fw-bold text-center">
                         <h2>Perfil del Estudiante</h2>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-3">
                         <div class="row">
-                            <div class="col-md-5">
+                            <div class="col-md-5 d-flex flex-column align-items-center">
                                 <p><strong>Nombre:</strong> ${infoCoder.name} ${infoCoder.lastname}</p>
                                 <p><strong>Documento:</strong> ${infoCoder.document}</p>
                                 <p><strong>Correo:</strong> ${infoCoder.email}</p>
@@ -46,8 +155,8 @@ document.addEventListener("DOMContentLoaded", () => {
                                 <p><strong>Jornada:</strong> ${infoCoder.shift}</p>
                                 <p><strong>Promedio:</strong> <span class="badge ${colorBadge}">${nota}</span></p>
                             </div>
-                            <div class="col-md-7">
-                                <canvas id="graficaNotas"></canvas>
+                            <div class="col-md-7 d-flex justify-content-center">
+                                <canvas class="" id="graficaNotas"></canvas>
                             </div>
                         </div>
                     </div>
@@ -205,4 +314,5 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     cargarInicial(); // Ejecuta la carga de datos [cite: 327]
+    document.querySelector('.inbox').addEventListener('click', () => window.location.href = '../dashboard/dashboard.html')
 });

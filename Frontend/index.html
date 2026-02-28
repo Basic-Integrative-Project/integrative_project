@@ -1,124 +1,112 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-    <meta charset="UTF-8">
-    <title>Gmail Unread Viewer</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <title>InboxIQ | Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Bootstrap -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
 
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
-    />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
 
-    <!-- Firebase v10 COMPAT -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <!-- Firebase v10 COMPAT -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
-    <!-- Tu JS ORIGINAL -->
-    <script defer src="script.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Tu JS ORIGINAL -->
+  <script defer src="script.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
-<body
-  style="
+<body style="
     background: linear-gradient(
       90deg,
       rgba(108, 99, 255, 1) 0%,
       rgba(43, 58, 103, 1) 100%
     );
-  "
->
+  ">
 
-<div class="container">
-  <div class="row justify-content-center align-items-center min-vh-100">
-    <div class="col-md-5">
-      <div
-        class="card border-0"
-        style="
+  <div class="container">
+    <div class="row justify-content-center align-items-center min-vh-100">
+      <div class="col-md-5">
+        <div class="card border-0" style="
           background: rgba(255, 255, 255, 0.35);
           border-radius: 16px;
           box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
           backdrop-filter: blur(6px);
-        "
-      >
-        <div class="card-body p-5">
+        ">
+          <div class="card-body p-5">
 
-          <div class="text-center mb-4">
-            <h1 class="fw-bold mb-2 text-white">
-              <span style="color: #6c63ff">&lt;/</span>Gmail<span style="color: #6c63ff">&gt;</span>
-            </h1>
-            <p class="text-light small mb-0">
-              Visor de Correos No Leídos
-            </p>
+            <div class="text-center mb-4">
+              <div class="m-0 p-0">
+                <img class="img-fluid" src="assets/logo/logo inboxqa2.png" alt="">
+              </div>
+              <h1 class="fw-bold mb-2 text-white">
+                <span style="color: #6c63ff">&lt;/</span>Gmail<span style="color: #6c63ff">&gt;</span>
+              </h1>
+              <p class="text-light small mb-0">
+                Visor de Correos No Leídos
+              </p>
+            </div>
+
+            <!-- BOTÓN LOGIN (MISMO ID ORIGINAL) -->
+            <div class="d-grid mb-3">
+              <button id="loginBtn" class="btn btn-light rounded-pill py-3 fw-semibold">
+                <i class="bi bi-google me-2"></i>
+                Iniciar sesión con Google
+              </button>
+            </div>
+
+            <!-- BOTÓN CONECTAR (MISMO ID ORIGINAL) -->
+            <div class="d-grid mb-3">
+              <button id="connectGmail" class="btn btn-primary rounded-pill py-3 fw-semibold d-none">
+                Conectar Gmail con n8n
+              </button>
+            </div>
+
+            <!-- BOTÓN OBTENER CORREOS (MISMO ID ORIGINAL) -->
+            <div class="d-grid mb-3">
+              <button id="getEmails" class="btn btn-success rounded-pill py-3 fw-semibold d-none">
+                Obtener Correos No Leídos
+              </button>
+            </div>
+
+            <!-- LISTA DE CORREOS (MISMO ID ORIGINAL) -->
+            <div id="emailList" class="mt-4 text-dark"></div>
+
           </div>
-
-          <!-- BOTÓN LOGIN (MISMO ID ORIGINAL) -->
-          <div class="d-grid mb-3">
-            <button
-              id="loginBtn"
-              class="btn btn-light rounded-pill py-3 fw-semibold"
-            >
-              <i class="bi bi-google me-2"></i>
-              Iniciar sesión con Google
-            </button>
-          </div>
-
-          <!-- BOTÓN CONECTAR (MISMO ID ORIGINAL) -->
-          <div class="d-grid mb-3">
-            <button
-              id="connectGmail"
-              class="btn btn-primary rounded-pill py-3 fw-semibold d-none"
-            >
-              Conectar Gmail con n8n
-            </button>
-          </div>
-
-          <!-- BOTÓN OBTENER CORREOS (MISMO ID ORIGINAL) -->
-          <div class="d-grid mb-3">
-            <button
-              id="getEmails"
-              class="btn btn-success rounded-pill py-3 fw-semibold d-none"
-            >
-              Obtener Correos No Leídos
-            </button>
-          </div>
-
-          <!-- LISTA DE CORREOS (MISMO ID ORIGINAL) -->
-          <div id="emailList" class="mt-4 text-dark"></div>
-
         </div>
       </div>
     </div>
   </div>
-</div>
 
 
-<style>
-/* Evita scroll horizontal accidental */
-body {
-  overflow-x: hidden;
-}
+  <style>
+    /* Evita scroll horizontal accidental */
+    body {
+      overflow-x: hidden;
+    }
 
-/* Mejor padding en móviles pequeños */
-@media (max-width: 576px) {
-  .card-body {
-    padding: 2rem !important;
-  }
+    /* Mejor padding en móviles pequeños */
+    @media (max-width: 576px) {
+      .card-body {
+        padding: 2rem !important;
+      }
 
-  h1 {
-    font-size: 1.6rem;
-  }
+      h1 {
+        font-size: 1.6rem;
+      }
 
-  .btn {
-    font-size: 0.9rem;
-    padding: 0.75rem 1rem !important;
-  }
-}
-</style>
+      .btn {
+        font-size: 0.9rem;
+        padding: 0.75rem 1rem !important;
+      }
+    }
+  </style>
 
 </body>
+
 </html>

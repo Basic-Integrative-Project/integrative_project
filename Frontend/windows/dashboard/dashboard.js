@@ -1,5 +1,5 @@
 // ==========================
-// 🔹 OBTENER CONFIGURACIÓN DESDE EL BACKEND
+// 🔹 OBTENER CONFIGURACIÓN
 // ==========================
 async function loadFirebaseConfig() {
   const response = await fetch("http://localhost:3000/firebase-config");
@@ -10,7 +10,7 @@ async function loadFirebaseConfig() {
 }
 
 // ==========================
-// 🔒 CACHÉ SOLO EN MEMORIA
+// 🔒 CACHE EN MEMORIA
 // ==========================
 let emailsCache = [];
 
@@ -22,7 +22,15 @@ function loadEmails() {
   return emailsCache;
 }
 
-//localStorage.removeItem("dashboardEmails");
+function loadFromStorage() {
+  const stored = localStorage.getItem("dashboardEmails");
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+}
 
 window.addEventListener("beforeunload", () => {
   emailsCache = [];
@@ -54,47 +62,10 @@ async function initApp() {
 initApp();
 
 // ==========================
-// 🚀 FUNCIÓN CENTRAL DE CARGA
-// ==========================
-async function fetchAndProcessEmails() {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const res = await fetch(
-    `https://n8n.andrescortes.dev/webhook/get-mails?uid=${encodeURIComponent(user.uid)}`
-  );
-  const data = await res.json();
-  const emails = Array.isArray(data) ? data : data.emails || [];
-
-  const tagResults = await classifyEmailsBatch(emails);
-
-  const colorMap = {
-    alertas: "secondary",
-    reunion: "warning",
-    faltas_justificadas: "success",
-    faltas_injustificadas: "danger",
-    importantes: "info",
-  };
-
-  const processed = emails.map((mail, i) => {
-    const tag = tagResults[i]?.tag || "importantes";
-    return {
-      ...mail,
-      tag,
-      colorClass: colorMap[tag] || "info",
-      revisado: false,
-    };
-  });
-
-  saveEmails(processed);
-  renderEmails();
-}
-
-// ==========================
 // 👤 AUTH LISTENER
 // ==========================
 function setupAuthListener() {
-  auth.onAuthStateChanged(async (user) => {
+  auth.onAuthStateChanged((user) => {
     if (!user) {
       window.location.href = "../../index.html";
       return;
@@ -115,7 +86,10 @@ function setupAuthListener() {
       ).toUpperCase();
     }
 
-    await fetchAndProcessEmails(); // 🔥 CARGA AUTOMÁTICA EN F5
+    // 🔹 CARGAR CORREOS DESDE LOCALSTORAGE
+    const emails = loadFromStorage();
+    saveEmails(emails);
+    renderEmails();
   });
 }
 
@@ -127,7 +101,7 @@ function setupLogoutButton() {
 
   if (logoutBtn) {
     logoutBtn.addEventListener("click", () => {
-      emailsCache = [];
+      localStorage.removeItem("dashboardEmails");
       auth.signOut()
         .then(() => window.location.href = "../../index.html")
         .catch(err => console.error("Error cerrando sesión:", err));
@@ -136,67 +110,72 @@ function setupLogoutButton() {
 }
 
 // ==========================
-//  BOTÓN RECARGAR
+// 🔄 BOTÓN RECARGAR (opcional)
 // ==========================
 function setupRefreshButton() {
   const refreshBtn = document.getElementById("refreshBtn");
   if (!refreshBtn) return;
 
-refreshBtn.addEventListener("click", async () => {
-  refreshBtn.disabled = true;
-  refreshBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Cargando...';
+  refreshBtn.addEventListener("click", async () => {
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = "Cargando...";
 
-  try {
-    await fetchAndProcessEmails(); // 🔥 reutiliza la función central
-  } catch (err) {
-    console.error("Error recargando correos:", err);
-    alert("Error al recargar correos. Revisa la consola.");
-  } finally {
-    refreshBtn.disabled = false;
-    refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Recargar';
-  }
-});
-}
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
 
-// ==========================
-// 🧠 CLASIFICACIÓN IA + fallback local (solo usada por el botón Recargar)
-// ==========================
-async function classifyEmailsBatch(emails) {
-  try {
-    const res = await fetch("http://localhost:3000/classify-emails", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        emails: emails.map(m => ({
-          subject: m.subject || "",
-          text: m.text || ""
+      const res = await fetch(
+        `https://n8n.andrescortes.dev/webhook/get-mails?uid=${encodeURIComponent(user.uid)}`
+      );
+
+      const data = await res.json();
+      const emails = Array.isArray(data) ? data : data.emails || [];
+
+      const batchRes = await fetch("http://localhost:3000/classify-emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emails: emails.map(m => ({
+            subject: m.subject || "",
+            text: m.text || ""
+          }))
+        }),
+      });
+
+      const batchData = await batchRes.json();
+
+      const colorMap = {
+        alertas: "secondary",
+        reunion: "warning",
+        faltas_justificadas: "success",
+        faltas_injustificadas: "danger",
+        importantes: "info",
+      };
+
+      const processed = emails
+        .map((mail, i) => ({
+          ...mail,
+          tag: batchData[i]?.tag || "importantes",
+          colorClass: colorMap[batchData[i]?.tag] || "info",
+          revisado: false,
         }))
-      }),
-    });
+        .filter(m => m.tag !== "alertas");
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+      localStorage.setItem("dashboardEmails", JSON.stringify(processed));
+      saveEmails(processed);
+      renderEmails();
 
-  } catch (err) {
-    console.error("Error en clasificación batch:", err);
-    return emails.map(mail => ({
-      tag: localFallback(mail.subject, mail.text)
-    }));
-  }
-}
-
-// Fallback local (solo si el backend no responde)
-function localFallback(subject = "", text = "") {
-  const s = (subject + " " + text).toLowerCase();
-  if (/(notificación|notification|alerta|promoción|oferta|descuento|newsletter|no-reply|noreply|marketing|publicidad|facebook|instagram|twitter|linkedin|github)/.test(s)) return "alertas";
-  if (/(reunión|reunion|meet|call|zoom|teams|agendar|calendario|llamada)/.test(s)) return "reunion";
-  if (/(baja médica|certificado médico|incapacidad|accidente|enfermedad|médico|hospital|urgencia|duelo|matrimonio|nacimiento|paternidad|maternidad|judicial|citación)/.test(s)) return "faltas_justificadas";
-  if (/(me qued[eé]\s+dormid[oa]|me dorm[ií]|no vine|no fui|no asist[ií]|falte sin avisar|no avis[eé]|sin permiso|olvid[eé]|llegu[eé] tarde|no ten[ií]a ganas)/.test(s)) return "faltas_injustificadas";
-  return "importantes";
+    } catch (err) {
+      console.error("Error recargando:", err);
+    } finally {
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> RECARGAR';
+    }
+  });
 }
 
 // ==========================
-// 📧 RENDER DE CORREOS (DOM eficiente: acumula strings, un solo innerHTML)
+// 📝 RENDER DE CORREOS (responsive)
 // ==========================
 function renderEmails() {
   const emails = loadEmails();
@@ -207,18 +186,17 @@ function renderEmails() {
 
   centerContainer.innerHTML = `
     <div class="row w-100">
-      <div class="col-lg-6">
+      <div class="col-12 col-md-6 mb-4">
         <h5 class="text-center mb-3 text-info">📋 IMPORTANTES</h5>
-        <div id="importantColumn"></div>
+        <div id="importantColumn" class="d-flex flex-column gap-3"></div>
       </div>
-      <div class="col-lg-6">
+      <div class="col-12 col-md-6 mb-4">
         <h5 class="text-center mb-3 text-warning">📅 REUNIONES</h5>
-        <div id="meetingColumn"></div>
+        <div id="meetingColumn" class="d-flex flex-column gap-3"></div>
       </div>
     </div>
   `;
 
-  // Acumular HTML por columna (evita re-parsear el DOM en cada iteración)
   let leftHtml = "";
   let importantHtml = "";
   let meetingHtml = "";
@@ -240,7 +218,7 @@ function renderEmails() {
     `;
 
     const buttonsHTML = `
-      <div class="mt-2 d-flex gap-2">
+      <div class="mt-2 d-flex gap-2 flex-wrap">
         <button class="btn btn-sm btn-outline-success" onclick="marcarRevisado(${index})">Revisado</button>
         <button class="btn btn-sm btn-outline-primary" onclick="leerCorreo(${index})">Leer</button>
         <button class="btn btn-sm btn-outline-dark" onclick="responderCorreo(${index})">Responder</button>
@@ -250,7 +228,7 @@ function renderEmails() {
     const footerHTML = `<div class="email-card-footer mt-2"><small>${mail.date ? new Date(mail.date).toLocaleString() : ""}</small></div>`;
 
     const cardHTML = `
-      <div class="email-card border-${colorClass} mb-3 ${mail.revisado ? 'opacity-50' : ''}">
+      <div class="email-card border-${colorClass} mb-3 w-100 d-flex flex-column ${mail.revisado ? 'opacity-50' : ''}">
         <div class="email-card-header"><span class="badge bg-${colorClass}">${mail.tag.toUpperCase()}</span></div>
         <div class="email-card-sender">${mail.from || "Desconocido"}</div>
         <div class="email-card-subject">${mail.subject || "Sin asunto"}</div>
@@ -265,7 +243,6 @@ function renderEmails() {
     else leftHtml += cardHTML; // faltas_justificadas y faltas_injustificadas
   });
 
-  // Asignar todo de una sola vez
   leftContainer.innerHTML = leftHtml;
   document.getElementById("importantColumn").innerHTML = importantHtml;
   document.getElementById("meetingColumn").innerHTML = meetingHtml;
@@ -356,6 +333,6 @@ window.responderCorreo = async function (index) {
 };
 
 // coders button
-document.querySelector('#codersBtn').addEventListener('click', () => {
+document.querySelector('#codersBtn')?.addEventListener('click', () => {
   window.location.href = '../coders/index.html';
 });
