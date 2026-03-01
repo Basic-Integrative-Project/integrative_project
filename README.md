@@ -1,4 +1,7 @@
 # INTEGRATIVE PROJECT
+# InboxIQ
+<img width="1024" height="1024" alt="logo inboxqa2" src="https://github.com/user-attachments/assets/02661001-0a9c-49e6-95cc-16fd7670f27c" />
+
 # AI-Powered Email Classification & Management Platform
 
 This project is a **full-stack web application** designed to automatically classify, filter, and manage emails efficiently, helping users save time and improve productivity.
