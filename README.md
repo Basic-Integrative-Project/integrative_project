@@ -1,4 +1,132 @@
 # INTEGRATIVE PROJECT
+# AI-Powered Email Classification & Management Platform
+
+This project is a **full-stack web application** designed to automatically classify, filter, and manage emails efficiently, helping users save time and improve productivity.
+
+---
+
+## Project Overview
+
+The system combines a **Node.js backend**, a **Firebase-authenticated frontend**, and workflow automation through **n8n** to create an intelligent email classification platform.
+
+It retrieves unread emails, processes them in batches using AI-powered classification via OpenAI, filters out non-relevant messages, and presents them in a structured and user-friendly dashboard.
+
+---
+
+## Key Features
+
+### Authentication & User Management
+
+- Google Login using **Firebase Authentication**
+- Automatic user registration in **Firestore**
+- Secure backend configuration with environment variables
+
+---
+
+### Automated Email Processing
+
+- Fetch unread emails via **n8n webhooks**
+- Batch classification through a **Node.js backend endpoint** (`/classify-emails`)
+- AI-based categorization with rule-based fallback
+- Hidden filtering of promotional/spam emails (`alertas`)
+- Local caching using `localStorage` to reduce unnecessary requests
+
+---
+
+### Email Categories
+
+- `reunion` – Meetings, calls, calendar events  
+- `faltas_justificadas` – Medical leave or justified absences  
+- `faltas_injustificadas` – Unjustified absences  
+- `importantes` – Important general emails  
+- `alertas` – Promotions, newsletters, spam (hidden automatically)  
+
+---
+
+## Interactive Dashboard
+
+- Responsive UI built with **Bootstrap 5**
+- Two main columns:
+  - Important
+  - Meetings
+- Color-coded tags for quick identification
+
+### Email Actions
+
+- Read
+- Mark as reviewed
+- Respond
+- Change category
+- Manual refresh button for real-time updates
+
+---
+
+# Additional Module: Coder Management System
+
+Beyond email classification, the system includes an academic management module for students (“Coders”).
+
+## Features
+
+- View a general list of coders with GPA averages
+- Access detailed profiles with:
+  - Module grades
+  - Assigned groups
+  - Session information
+  - Appointment tracking and history management
+- REST API endpoints for full CRUD operations
+
+## Database
+
+- MySQL relational structure
+- Tables for:
+  - Coders
+  - Grades
+  - Appointments
+  - History tracking
+
+---
+
+# 🛠 Technical Stack
+
+| Layer | Technology |
+|--------|------------|
+| Frontend | HTML, CSS, JavaScript |
+| UI Framework | Bootstrap 5 |
+| Authentication & DB | Firebase (Auth + Firestore) |
+| Automation | n8n Webhooks |
+| Backend | Node.js + Express |
+| Database | MySQL |
+| AI Classification | OpenAI API |
+
+---
+
+# Architecture Summary
+
+1. User logs in with Google (Firebase Auth).
+2. Emails are retrieved from n8n.
+3. Emails are sent in batches to the backend.
+4. The backend classifies them using OpenAI.
+5. Non-relevant emails are filtered out.
+6. Processed emails are cached and displayed dynamically.
+7. Users can manage and interact with their inbox through a structured dashboard.
+
+---
+
+# Purpose
+
+The main goal of this project is to:
+
+- Automate email organization
+- Reduce time spent sorting inbox messages
+- Improve focus by filtering non-essential emails
+- Provide a scalable backend-ready architecture
+- Integrate AI classification into a real-world productivity system
+
+---
+
+## Summary
+
+In short, this is an **AI-powered email classification and management platform** that streamlines inbox workflows while also incorporating an academic management module within the same full-stack ecosystem.
 
 ## Project Structure
 
