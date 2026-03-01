@@ -97,7 +97,7 @@ Beyond email classification, the system includes an academic management module f
 
 ---
 
-# 🛠 Technical Stack
+# Technical Stack
 
 | Layer | Technology |
 |--------|------------|
@@ -187,7 +187,7 @@ Logic to load and display the details of a specific coder.
 
 ---
 
-## Login `Frontend/index.html` & `Frontend/index.html`
+## Login `Frontend/index.html` & `Frontend/script.js`
 This project provides a web-based login interface using Firebase Authentication (Google) and integrates with n8n workflows and a Node.js backend for automatic email classification.
 
 ### Features
@@ -247,7 +247,7 @@ initApp();
 
 ## Coder Management System `Frontend/windows/coders`
 
-It was designed to manage and display students' (Coders') academic information. It allows users to view a general list with averages and access a detailed profile with grades for each module, group, and assigned session[cite: 30, 41, 131, 140].
+It was designed to manage and display students' (Coders') academic information. It allows users to view a general list with averages and access a detailed profile with grades for each module, group, and assigned session.
 ## API Endpoints
 
 ### GET /api/coders 
