@@ -174,6 +174,60 @@ function setupRefreshButton() {
   });
 }
 
+async function singleRefresh() {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const res = await fetch(
+      `https://n8n.andrescortes.dev/webhook/get-mails?uid=${encodeURIComponent(user.uid)}`
+    );
+
+    const data = await res.json();
+    const emails = Array.isArray(data) ? data : data.emails || [];
+
+    const batchRes = await fetch("http://localhost:3000/classify-emails", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        emails: emails.map(m => ({
+          subject: m.subject || "",
+          text: m.text || ""
+        }))
+      }),
+    });
+
+    const batchData = await batchRes.json();
+
+    const colorMap = {
+      alertas: "secondary",
+      reunion: "warning",
+      faltas_justificadas: "success",
+      faltas_injustificadas: "danger",
+      importantes: "info",
+    };
+
+    const processed = emails
+      .map((mail, i) => ({
+        ...mail,
+        tag: batchData[i]?.tag || "importantes",
+        colorClass: colorMap[batchData[i]?.tag] || "info",
+        revisado: false,
+      }))
+      .filter(m => m.tag !== "alertas");
+
+    localStorage.setItem("dashboardEmails", JSON.stringify(processed));
+    saveEmails(processed);
+    renderEmails();
+
+  } catch (err) {
+    console.error("Error recargando:", err);
+  } finally {
+    refreshBtn.disabled = false;
+    refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> RECARGAR';
+  }
+}
+
 // ==========================
 // 📝 RENDER DE CORREOS (responsive)
 // ==========================
@@ -304,14 +358,26 @@ window.leerCorreo = function (index) {
   modal.show();
 };
 
-window.marcarRevisado = function (index) {
+window.marcarRevisado = async function (index) {
   const emails = loadEmails();
   if (!emails[index]) return;
 
-  emails[index].revisado = true;
-  saveEmails(emails);
-  renderEmails();
+  if (emails[index].tag) {
+    const id = emails[index].id;
+    const response = await fetch("http://localhost:3000/read-email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ id })
+    });
+
+    const data = await response.json();
+    console.log(data);
+    singleRefresh();
+  }
 };
+
 
 window.responderCorreo = async function (index) {
   const emails = loadEmails();
@@ -329,6 +395,65 @@ window.responderCorreo = async function (index) {
 
     const data = await response.json();
     console.log(data);
+    singleRefresh();
+  } else if (emails[index].tag === "reunion" || emails[index].tag === "importantes") {
+    const modal = new bootstrap.Modal(document.getElementById("emailModal_respuesta"));
+
+    const colors = { importantes: "bg-info", reunion: "bg-warning" };
+    const tagColor = colors[emails[index].tag] || "bg-secondary";
+
+    document.getElementById("modalSubject_r").textContent = emails[index].subject || "Sin asunto";
+    document.getElementById("modalFrom_r").textContent = emails[index].from || "Desconocido";
+    document.getElementById("modalDate_r").textContent = emails[index].date ? new Date(emails[index].date).toLocaleString() : "";
+
+    const tagElement = document.getElementById("modalTag_r");
+    tagElement.className = "badge " + tagColor;
+    tagElement.textContent = (emails[index].tag || "SIN CATEGORIA").replace("_", " ").toUpperCase();
+
+    document.getElementById("modalBody_r").textContent = emails[index].text || emails[index].body || "Sin contenido";
+    const inputText = document.getElementById("text_r");
+    inputText.value = ""; // Limpiar input
+
+    modal.show();
+
+    // Listener dinámico para enviar respuesta
+    let btnSend = document.getElementById("btnSend_r");
+
+    // Limpiamos cualquier listener anterior para evitar duplicados
+    btnSend.replaceWith(btnSend.cloneNode(true));
+    btnSend = document.getElementById("btnSend_r");
+
+    // Inicialmente deshabilitamos el botón si el input está vacío
+    btnSend.disabled = true;
+
+    // Activar/desactivar botón según contenido del input
+    inputText.addEventListener("input", () => {
+      btnSend.disabled = inputText.value.trim() === "";
+    });
+
+    // Enviar mensaje al hacer click
+    btnSend.addEventListener("click", () => {
+      const message = inputText.value.trim();
+      if (!message) return; // seguridad extra, aunque botón ya está deshabilitado
+
+      sendMessage(message, index); // Llamada dinámica con texto y email
+      modal.hide();
+    });
+
+    async function sendMessage(message, index) {
+
+      const response = await fetch("http://localhost:3000/send-by-From", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ id: emails[index].id, message })
+      });
+
+      const data = await response.json();
+      console.log(data);
+      singleRefresh();
+    }
   }
 };
 

@@ -4,11 +4,11 @@
 <head>
   <meta charset="UTF-8">
   <title>InboxIQ | Login</title>
+  <link rel="icon" href="assets/logo/favicon2.png" type="image/png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
-
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
 
   <!-- Firebase v10 COMPAT -->
@@ -16,82 +16,81 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
-  <!-- Tu JS ORIGINAL -->
   <script defer src="script.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-</head>
-
-<body style="
-    background: linear-gradient(
-      90deg,
-      rgba(108, 99, 255, 1) 0%,
-      rgba(43, 58, 103, 1) 100%
-    );
-  ">
-
-  <div class="container">
-    <div class="row justify-content-center align-items-center min-vh-100">
-      <div class="col-md-5">
-        <div class="card border-0" style="
-          background: rgba(255, 255, 255, 0.35);
-          border-radius: 16px;
-          box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-          backdrop-filter: blur(6px);
-        ">
-          <div class="card-body p-5">
-
-            <div class="text-center mb-4">
-              <div class="m-0 p-0">
-                <img class="img-fluid" src="assets/logo/logo inboxqa2.png" alt="">
-              </div>
-              <h1 class="fw-bold mb-2 text-white">
-                <span style="color: #6c63ff">&lt;/</span>Gmail<span style="color: #6c63ff">&gt;</span>
-              </h1>
-              <p class="text-light small mb-0">
-                Visor de Correos No Leídos
-              </p>
-            </div>
-
-            <!-- BOTÓN LOGIN (MISMO ID ORIGINAL) -->
-            <div class="d-grid mb-3">
-              <button id="loginBtn" class="btn btn-light rounded-pill py-3 fw-semibold">
-                <i class="bi bi-google me-2"></i>
-                Iniciar sesión con Google
-              </button>
-            </div>
-
-            <!-- BOTÓN CONECTAR (MISMO ID ORIGINAL) -->
-            <div class="d-grid mb-3">
-              <button id="connectGmail" class="btn btn-primary rounded-pill py-3 fw-semibold d-none">
-                Conectar Gmail con n8n
-              </button>
-            </div>
-
-            <!-- BOTÓN OBTENER CORREOS (MISMO ID ORIGINAL) -->
-            <div class="d-grid mb-3">
-              <button id="getEmails" class="btn btn-success rounded-pill py-3 fw-semibold d-none">
-                Obtener Correos No Leídos
-              </button>
-            </div>
-
-            <!-- LISTA DE CORREOS (MISMO ID ORIGINAL) -->
-            <div id="emailList" class="mt-4 text-dark"></div>
-
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
 
   <style>
-    /* Evita scroll horizontal accidental */
     body {
+      margin: 0;
       overflow-x: hidden;
+      background: white;
     }
 
-    /* Mejor padding en móviles pequeños */
+    /* ===== FONDO ANIMADO ===== */
+
+    .background-wrapper {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-evenly;
+    }
+
+    .ribbon {
+      white-space: nowrap;
+      font-size: 3rem;
+      font-weight: 800;
+      color: black;
+      opacity: 0.2;
+      letter-spacing: 8px;
+    }
+
+    .move-left {
+      animation: moveLeft 50s linear infinite;
+    }
+
+    .move-right {
+      animation: moveRight 50s linear infinite;
+    }
+
+    @keyframes moveLeft {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    @keyframes moveRight {
+      from { transform: translateX(-50%); }
+      to { transform: translateX(0); }
+    }
+
+    /* ===== CARD ===== */
+
+    .glass-card {
+      background: rgba(6, 4, 65, 0.509);
+      /* background: rgba(81, 40, 215, 0.365); */
+      border-radius: 16px;
+      box-shadow: 0 4px 30px rgba(113, 72, 236, 0.1);
+      backdrop-filter: blur(6px);
+    }
+
+    /* ===== RESPONSIVE ===== */
+
+    @media (max-width: 768px) {
+      .ribbon {
+        font-size: 2rem;
+      }
+    }
+
     @media (max-width: 576px) {
+      .ribbon {
+        font-size: 1.5rem;
+        letter-spacing: 4px;
+      }
+
       .card-body {
         padding: 2rem !important;
       }
@@ -106,7 +105,129 @@
       }
     }
   </style>
+</head>
+
+<body>
+
+  <!-- ===== FONDO ===== -->
+  <div class="background-wrapper">
+    <div class="ribbon move-right">
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>
+    </div>
+
+    <div class="ribbon move-left">
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>
+    </div>
+
+    <div class="ribbon move-right">
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>
+    </div>
+
+        <!-- <div class="ribbon move-left">
+        <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+        <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+        <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+        <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+        <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+        <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+        <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+        <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+        <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>
+        </div> -->
+
+    <!-- <div class="ribbon move-right">
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>
+    </div>
+
+    <div class="ribbon move-left">
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#6c63ff">&lt;/</span>RIWI<span style="color:#6c63ff">&gt;</span>
+    </div> -->
+
+  </div>
+
+  <!-- ===== LOGIN ===== -->
+  <div class="container">
+    <div class="row justify-content-center align-items-center min-vh-100">
+      <div class="col-11 col-sm-9 col-md-8 col-lg-5 col-xl-5">
+        <div class="card border-0 glass-card">
+          <div class="card-body p-5">
+
+            <div class="text-center mb-4">
+              <img class="img-fluid mb-3" src="../Frontend/assets/logo/logo inboxqa2.png" alt="">
+              <h1 class="fw-bold mb-2 text-dark">
+                <span style="color:#6c63ff">&lt;/</span>Gmail<span style="color:#6c63ff">&gt;</span>
+              </h1>
+              <p class="text-dark small mb-0">
+                Visor de Correos No Leídos
+              </p>
+            </div>
+
+            <div class="d-grid mb-3">
+              <button id="loginBtn" class="btn btn-light rounded-pill py-3 fw-semibold">
+                <i class="bi bi-google me-2"></i>
+                Iniciar sesión con Google
+              </button>
+            </div>
+
+            <div class="d-grid mb-3">
+              <button id="connectGmail" class="btn btn-primary rounded-pill py-3 fw-semibold d-none">
+                Conectar Gmail con n8n
+              </button>
+            </div>
+
+            <div class="d-grid mb-3">
+              <button id="getEmails" class="btn btn-success rounded-pill py-3 fw-semibold d-none">
+                Obtener Correos No Leídos
+              </button>
+            </div>
+
+            <div id="emailList" class="mt-4 text-dark"></div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
 </body>
-
 </html>

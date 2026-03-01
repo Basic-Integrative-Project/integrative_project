@@ -332,6 +332,32 @@ app.post("/send-by-id", async (req, res) => {
   }
 });
 
+app.post("/read-email", async (req, res) => {
+  try {
+    const response = await axios.post(
+      "https://n8n.andrescortes.dev/webhook/read-email",
+      req.body
+    );
+
+    res.json(response.data);
+  } catch (error) {
+    res.status(500).json({ error: "Error enviando a n8n" });
+  }
+});
+
+app.post("/send-by-From", async (req, res) => {
+  try {
+    const response = await axios.post(
+      "https://n8n.andrescortes.dev/webhook/send-by-From",
+      req.body
+    );
+
+    res.json(response.data);
+  } catch (error) {
+    res.status(500).json({ error: error.message, details: error.response?.data });
+  }
+});
+
 // ─────────────────────────────────────────────
 // 🔹 START SERVER
 // ─────────────────────────────────────────────
