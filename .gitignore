@@ -11,4 +11,4 @@ Backend/package.json
 Backend/.env
 
 # Ignore the .vscode folder inside Backend
-.vscode
+# .vscode
