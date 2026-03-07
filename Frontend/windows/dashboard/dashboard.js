@@ -36,6 +36,28 @@ window.addEventListener("beforeunload", () => {
   emailsCache = [];
 });
 
+// ✅ HELPER: parsea la respuesta de n8n sin importar la estructura que devuelva
+function parseEmailsFromN8n(data) {
+  console.log("📬 Respuesta raw de n8n:", JSON.stringify(data, null, 2));
+
+  // Caso 1: array plano de correos  →  [ {id, subject, ...}, ... ]
+  if (Array.isArray(data) && data.length > 0 && data[0]?.id) return data;
+
+  // Caso 2: nodo Aggregate          →  [ { emails: [...] } ]
+  if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0]?.emails)) return data[0].emails;
+
+  // Caso 3: objeto con emails        →  { emails: [...] }
+  if (Array.isArray(data?.emails)) return data.emails;
+
+  // Caso 4: legado                   →  { json: { emails: [...] } }
+  if (Array.isArray(data?.json?.emails)) return data.json.emails;
+
+  // Caso 5: array de wrappers n8n    →  [ { json: { id, subject, ... } }, ... ]
+  if (Array.isArray(data) && data[0]?.json?.id) return data.map(d => d.json);
+
+  return [];
+}
+
 // ==========================
 // 🔥 INICIALIZAR FIREBASE
 // ==========================
@@ -86,7 +108,6 @@ function setupAuthListener() {
       ).toUpperCase();
     }
 
-    // 🔹 CARGAR CORREOS DESDE LOCALSTORAGE
     const emails = loadFromStorage();
     saveEmails(emails);
     renderEmails();
@@ -102,6 +123,7 @@ function setupLogoutButton() {
   if (logoutBtn) {
     logoutBtn.addEventListener("click", () => {
       localStorage.removeItem("dashboardEmails");
+      localStorage.removeItem("gmail_access_token");
       auth.signOut()
         .then(() => window.location.href = "../../index.html")
         .catch(err => console.error("Error cerrando sesión:", err));
@@ -110,7 +132,57 @@ function setupLogoutButton() {
 }
 
 // ==========================
-// 🔄 BOTÓN RECARGAR (opcional)
+// 🔄 HELPER INTERNO: fetch + classify + render
+// ==========================
+async function fetchClassifyAndRender(user) {
+  const accessToken = localStorage.getItem("gmail_access_token");
+
+  const res = await fetch("https://n8n.andrescortes.dev/webhook/get-mails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ access_token: accessToken, uid: user.uid })
+  });
+
+  const data = await res.json();
+  const emails = parseEmailsFromN8n(data);
+
+  const batchRes = await fetch("http://localhost:3000/classify-emails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      emails: emails.map(m => ({
+        subject: m.subject || "",
+        text: (m.text || "").substring(0, 500)
+      }))
+    }),
+  });
+
+  const batchData = await batchRes.json();
+
+  const colorMap = {
+    alertas: "secondary",
+    reunion: "warning",
+    faltas_justificadas: "success",
+    faltas_injustificadas: "danger",
+    importantes: "info",
+  };
+
+  const processed = emails
+    .map((mail, i) => ({
+      ...mail,
+      tag: batchData[i]?.tag || "importantes",
+      colorClass: colorMap[batchData[i]?.tag] || "info",
+      revisado: false,
+    }))
+    .filter(m => m.tag !== "alertas");
+
+  localStorage.setItem("dashboardEmails", JSON.stringify(processed));
+  saveEmails(processed);
+  renderEmails();
+}
+
+// ==========================
+// 🔄 BOTÓN RECARGAR
 // ==========================
 function setupRefreshButton() {
   const refreshBtn = document.getElementById("refreshBtn");
@@ -123,48 +195,7 @@ function setupRefreshButton() {
     try {
       const user = auth.currentUser;
       if (!user) return;
-
-      const res = await fetch(
-        `https://n8n.andrescortes.dev/webhook/get-mails?uid=${encodeURIComponent(user.uid)}`
-      );
-
-      const data = await res.json();
-      const emails = Array.isArray(data) ? data : data.emails || [];
-
-      const batchRes = await fetch("http://localhost:3000/classify-emails", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          emails: emails.map(m => ({
-            subject: m.subject || "",
-            text: m.text || ""
-          }))
-        }),
-      });
-
-      const batchData = await batchRes.json();
-
-      const colorMap = {
-        alertas: "secondary",
-        reunion: "warning",
-        faltas_justificadas: "success",
-        faltas_injustificadas: "danger",
-        importantes: "info",
-      };
-
-      const processed = emails
-        .map((mail, i) => ({
-          ...mail,
-          tag: batchData[i]?.tag || "importantes",
-          colorClass: colorMap[batchData[i]?.tag] || "info",
-          revisado: false,
-        }))
-        .filter(m => m.tag !== "alertas");
-
-      localStorage.setItem("dashboardEmails", JSON.stringify(processed));
-      saveEmails(processed);
-      renderEmails();
-
+      await fetchClassifyAndRender(user);
     } catch (err) {
       console.error("Error recargando:", err);
     } finally {
@@ -174,57 +205,22 @@ function setupRefreshButton() {
   });
 }
 
+// ==========================
+// 🔄 REFRESCO AUTOMÁTICO
+// ==========================
 async function singleRefresh() {
   try {
     const user = auth.currentUser;
     if (!user) return;
-
-    const res = await fetch(
-      `https://n8n.andrescortes.dev/webhook/get-mails?uid=${encodeURIComponent(user.uid)}`
-    );
-
-    const data = await res.json();
-    const emails = Array.isArray(data) ? data : data.emails || [];
-
-    const batchRes = await fetch("http://localhost:3000/classify-emails", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        emails: emails.map(m => ({
-          subject: m.subject || "",
-          text: m.text || ""
-        }))
-      }),
-    });
-
-    const batchData = await batchRes.json();
-
-    const colorMap = {
-      alertas: "secondary",
-      reunion: "warning",
-      faltas_justificadas: "success",
-      faltas_injustificadas: "danger",
-      importantes: "info",
-    };
-
-    const processed = emails
-      .map((mail, i) => ({
-        ...mail,
-        tag: batchData[i]?.tag || "importantes",
-        colorClass: colorMap[batchData[i]?.tag] || "info",
-        revisado: false,
-      }))
-      .filter(m => m.tag !== "alertas");
-
-    localStorage.setItem("dashboardEmails", JSON.stringify(processed));
-    saveEmails(processed);
-    renderEmails();
-
+    await fetchClassifyAndRender(user);
   } catch (err) {
     console.error("Error recargando:", err);
   } finally {
-    refreshBtn.disabled = false;
-    refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> RECARGAR';
+    const refreshBtn = document.getElementById("refreshBtn");
+    if (refreshBtn) {
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> RECARGAR';
+    }
   }
 }
 
@@ -254,6 +250,11 @@ function renderEmails() {
   let leftHtml = "";
   let importantHtml = "";
   let meetingHtml = "";
+
+  // Contar faltas para mostrar/ocultar el botón "Responder todos"
+  const faltasEmails = emails.filter(m =>
+    m.tag === "faltas_justificadas" || m.tag === "faltas_injustificadas"
+  );
 
   emails.forEach((mail, index) => {
     if (mail.tag === "alertas") return;
@@ -297,7 +298,29 @@ function renderEmails() {
     else leftHtml += cardHTML; // faltas_justificadas y faltas_injustificadas
   });
 
-  leftContainer.innerHTML = leftHtml;
+  // ✅ BOTÓN "RESPONDER TODOS" — solo aparece si hay faltas pendientes
+  const responderTodosBtn = faltasEmails.length > 0 ? `
+    <div class="mb-3 text-center">
+      <button 
+        class="btn btn-danger w-100" 
+        onclick="responderTodos()"
+        id="btnResponderTodos"
+      >
+        <i class="bi bi-reply-all-fill"></i> 
+        Responder todos (${faltasEmails.length})
+      </button>
+    </div>
+  ` : '';
+
+  // ✅ SECCIÓN DE FALTAS con header y botón general
+  leftContainer.innerHTML = faltasEmails.length > 0 ? `
+    <div class="mb-3">
+      <h5 class="text-center mb-3 text-danger">⚠️ FALTAS</h5>
+      ${responderTodosBtn}
+      ${leftHtml}
+    </div>
+  ` : '';
+
   document.getElementById("importantColumn").innerHTML = importantHtml;
   document.getElementById("meetingColumn").innerHTML = meetingHtml;
 
@@ -364,12 +387,12 @@ window.marcarRevisado = async function (index) {
 
   if (emails[index].tag) {
     const id = emails[index].id;
+    const accessToken = localStorage.getItem("gmail_access_token");
+
     const response = await fetch("http://localhost:3000/read-email", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ id })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, access_token: accessToken })
     });
 
     const data = await response.json();
@@ -378,24 +401,24 @@ window.marcarRevisado = async function (index) {
   }
 };
 
-
 window.responderCorreo = async function (index) {
   const emails = loadEmails();
   if (!emails[index]) return;
+
+  const accessToken = localStorage.getItem("gmail_access_token");
 
   if (emails[index].tag === "faltas_injustificadas" || emails[index].tag === "faltas_justificadas") {
     const id = emails[index].id;
     const response = await fetch("http://localhost:3000/send-by-id", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ id })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, access_token: accessToken })
     });
 
     const data = await response.json();
     console.log(data);
     singleRefresh();
+
   } else if (emails[index].tag === "reunion" || emails[index].tag === "importantes") {
     const modal = new bootstrap.Modal(document.getElementById("emailModal_respuesta"));
 
@@ -412,42 +435,40 @@ window.responderCorreo = async function (index) {
 
     document.getElementById("modalBody_r").textContent = emails[index].text || emails[index].body || "Sin contenido";
     const inputText = document.getElementById("text_r");
-    inputText.value = ""; // Limpiar input
+    inputText.value = "";
 
     modal.show();
 
-    // Listener dinámico para enviar respuesta
     let btnSend = document.getElementById("btnSend_r");
-
-    // Limpiamos cualquier listener anterior para evitar duplicados
     btnSend.replaceWith(btnSend.cloneNode(true));
     btnSend = document.getElementById("btnSend_r");
-
-    // Inicialmente deshabilitamos el botón si el input está vacío
     btnSend.disabled = true;
 
-    // Activar/desactivar botón según contenido del input
     inputText.addEventListener("input", () => {
       btnSend.disabled = inputText.value.trim() === "";
     });
 
-    // Enviar mensaje al hacer click
     btnSend.addEventListener("click", () => {
       const message = inputText.value.trim();
-      if (!message) return; // seguridad extra, aunque botón ya está deshabilitado
-
-      sendMessage(message, index); // Llamada dinámica con texto y email
+      if (!message) return;
+      sendMessage(message, index);
       modal.hide();
     });
 
     async function sendMessage(message, index) {
+      const accessToken = localStorage.getItem("gmail_access_token");
 
       const response = await fetch("http://localhost:3000/send-by-From", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ id: emails[index].id, message })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: emails[index].id,
+          message,
+          access_token: accessToken,
+          to: emails[index].from,
+          subject: emails[index].subject || "",
+          threadId: emails[index].threadId || ""
+        })
       });
 
       const data = await response.json();
@@ -455,6 +476,67 @@ window.responderCorreo = async function (index) {
       singleRefresh();
     }
   }
+};
+
+// ==========================
+// ✅ RESPONDER TODOS — faltas
+// ==========================
+window.responderTodos = async function () {
+  const emails = loadEmails();
+  const accessToken = localStorage.getItem("gmail_access_token");
+
+  // Filtrar solo faltas pendientes
+  const faltas = emails
+    .map((mail, index) => ({ ...mail, index }))
+    .filter(m => m.tag === "faltas_justificadas" || m.tag === "faltas_injustificadas");
+
+  if (faltas.length === 0) return;
+
+  // Deshabilitar botón y mostrar progreso
+  const btn = document.getElementById("btnResponderTodos");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Enviando 0 / ${faltas.length}...`;
+  }
+
+  let enviados = 0;
+  const errores = [];
+
+  for (const mail of faltas) {
+    try {
+      const response = await fetch("http://localhost:3000/send-by-id", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: mail.id, access_token: accessToken })
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      enviados++;
+
+      // Actualizar progreso en el botón
+      if (btn) {
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Enviando ${enviados} / ${faltas.length}...`;
+      }
+
+      // Pequeña pausa entre envíos para no saturar Gmail API
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+    } catch (err) {
+      console.error(`Error respondiendo correo ${mail.id}:`, err);
+      errores.push(mail.subject || mail.id);
+    }
+  }
+
+  // Mostrar resultado
+  if (errores.length === 0) {
+    console.log(`✅ ${enviados} correos respondidos y marcados como leídos`);
+  } else {
+    console.warn(`⚠️ ${enviados} enviados, ${errores.length} fallaron:`, errores);
+  }
+
+  // Refrescar dashboard
+  await singleRefresh();
 };
 
 // coders button
