@@ -5,7 +5,7 @@ Backend/node_modules/
 Backend/package-lock.json
 
 # Ignore package.json inside Backend
-Backend/package.json
+# Backend/package.json
 
 # Ignore the .env file inside Backend (file, not folder)
 Backend/.env
