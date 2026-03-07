@@ -19,8 +19,13 @@ async function initApp() {
     window.auth = firebase.auth();
     window.db = firebase.firestore();
     window.provider = new firebase.auth.GoogleAuthProvider();
+
+    // Gmail scopes
     window.provider.addScope('https://www.googleapis.com/auth/gmail.modify');
     window.provider.addScope('https://www.googleapis.com/auth/gmail.send');
+
+    // ✅ NUEVO — Google Calendar scope
+    window.provider.addScope('https://www.googleapis.com/auth/calendar.events');
 
     console.log("✅ Firebase inicializado");
     setupLogin();
@@ -41,7 +46,7 @@ async function getValidAccessToken() {
     const tokenAge = localStorage.getItem("gmail_token_time");
     const now = Date.now();
 
-    // Token dura 1 hora (3600000ms), renovar si tiene más de 50 minutos
+    // Token dura 1 hora, renovar si tiene más de 50 minutos
     if (tokenAge && (now - parseInt(tokenAge)) > 3000000) {
       console.log("🔄 Token próximo a vencer, renovando...");
       const reauth = await auth.currentUser.reauthenticateWithPopup(window.provider);
@@ -61,22 +66,11 @@ async function getValidAccessToken() {
 // ✅ HELPER: parsea la respuesta de n8n sin importar la estructura que devuelva
 function parseEmailsFromN8n(data) {
   console.log("📬 Respuesta raw de n8n:", JSON.stringify(data, null, 2));
-
-  // Caso 1: array plano de correos  →  [ {id, subject, ...}, ... ]
   if (Array.isArray(data) && data.length > 0 && data[0]?.id) return data;
-
-  // Caso 2: nodo Aggregate          →  [ { emails: [...] } ]
   if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0]?.emails)) return data[0].emails;
-
-  // Caso 3: objeto con emails        →  { emails: [...] }
   if (Array.isArray(data?.emails)) return data.emails;
-
-  // Caso 4: legado                   →  { json: { emails: [...] } }
   if (Array.isArray(data?.json?.emails)) return data.json.emails;
-
-  // Caso 5: array de wrappers n8n    →  [ { json: { id, subject, ... } }, ... ]
   if (Array.isArray(data) && data[0]?.json?.id) return data.map(d => d.json);
-
   return [];
 }
 
@@ -96,7 +90,7 @@ function setupLogin() {
       const result = await auth.signInWithPopup(provider);
       currentUser = result.user;
 
-      // ✅ FIX 3 — Guardar token + timestamp
+      // Guardar token + timestamp
       const accessToken = result.credential.accessToken;
       localStorage.setItem("gmail_access_token", accessToken);
       localStorage.setItem("gmail_token_time", Date.now().toString());
@@ -118,8 +112,6 @@ function setupLogin() {
       });
 
       const data = await res.json();
-
-      // ✅ PARSEO ROBUSTO — cubre todos los formatos posibles de n8n
       const emails = parseEmailsFromN8n(data);
 
       if (emails.length === 0) {
@@ -142,7 +134,6 @@ function setupLogin() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          // ✅ FIX 2 — truncar texto antes de enviar al backend
           emails: emails.map(m => ({
             subject: m.subject || "",
             text: (m.text || "").substring(0, 500)
@@ -164,7 +155,6 @@ function setupLogin() {
         importantes: "info",
       };
 
-      // 🔥 PROCESAR Y FILTRAR ALERTAS
       const processedEmails = emails
         .map((mail, index) => {
           const tag = batchData[index]?.tag || "importantes";
@@ -180,18 +170,11 @@ function setupLogin() {
       localStorage.setItem("dashboardEmails", JSON.stringify(processedEmails));
 
       Swal.close();
-
       window.location.href = "./windows/dashboard/dashboard.html";
 
     } catch (error) {
-
       console.error("Error en login:", error);
-
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: error.message
-      });
+      Swal.fire({ icon: "error", title: "Error", text: error.message });
     }
   });
 }
