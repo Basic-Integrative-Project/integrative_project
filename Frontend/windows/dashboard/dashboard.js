@@ -594,15 +594,25 @@ window.agendarEnCalendar = async function (index) {
     const startDateTime = `${formValues.date}T${formValues.startTime}:00`;
     const endDateTime = `${formValues.date}T${formValues.endTime}:00`;
 
-    // Construir lista de asistentes
-    const attendees = [];
-    if (mail.from) attendees.push({ email: mail.from.match(/<(.+)>/)?.[1] || mail.from });
-    if (auth.currentUser?.email) attendees.push({ email: auth.currentUser.email });
-    if (meetingData.attendees?.length) {
-      meetingData.attendees.forEach(a => {
-        if (!attendees.find(x => x.email === a)) attendees.push({ email: a });
-      });
+    // Helper: extrae solo el email limpio desde strings tipo "Nombre <email@x.com>" o "email@x.com"
+    function extractEmail(raw = "") {
+      const match = raw.match(/<([^>]+)>/);
+      if (match) return match[1].trim().toLowerCase();
+      const plain = raw.trim().toLowerCase();
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(plain) ? plain : null;
     }
+
+    // Construir lista de asistentes con emails válidos únicamente
+    const attendeesRaw = [];
+    if (mail.from) attendeesRaw.push(extractEmail(mail.from));
+    if (auth.currentUser?.email) attendeesRaw.push(auth.currentUser.email.trim().toLowerCase());
+    if (meetingData.attendees?.length) {
+      meetingData.attendees.forEach(a => attendeesRaw.push(extractEmail(a)));
+    }
+
+    // Filtrar nulls, inválidos y duplicados
+    const attendees = [...new Set(attendeesRaw.filter(e => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)))]
+      .map(email => ({ email }));
 
     const event = {
       summary: formValues.title,
