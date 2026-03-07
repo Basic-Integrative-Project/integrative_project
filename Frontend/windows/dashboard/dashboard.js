@@ -39,22 +39,11 @@ window.addEventListener("beforeunload", () => {
 // ✅ HELPER: parsea la respuesta de n8n sin importar la estructura que devuelva
 function parseEmailsFromN8n(data) {
   console.log("📬 Respuesta raw de n8n:", JSON.stringify(data, null, 2));
-
-  // Caso 1: array plano de correos  →  [ {id, subject, ...}, ... ]
   if (Array.isArray(data) && data.length > 0 && data[0]?.id) return data;
-
-  // Caso 2: nodo Aggregate          →  [ { emails: [...] } ]
   if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0]?.emails)) return data[0].emails;
-
-  // Caso 3: objeto con emails        →  { emails: [...] }
   if (Array.isArray(data?.emails)) return data.emails;
-
-  // Caso 4: legado                   →  { json: { emails: [...] } }
   if (Array.isArray(data?.json?.emails)) return data.json.emails;
-
-  // Caso 5: array de wrappers n8n    →  [ { json: { id, subject, ... } }, ... ]
   if (Array.isArray(data) && data[0]?.json?.id) return data.map(d => d.json);
-
   return [];
 }
 
@@ -64,18 +53,12 @@ function parseEmailsFromN8n(data) {
 async function initApp() {
   try {
     const firebaseConfig = await loadFirebaseConfig();
-
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
-
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     window.auth = firebase.auth();
     console.log("✅ Firebase inicializado");
-
     setupAuthListener();
     setupLogoutButton();
     setupRefreshButton();
-
   } catch (error) {
     console.error("Error inicializando Firebase:", error);
   }
@@ -99,7 +82,6 @@ function setupAuthListener() {
 
     if (name) name.textContent = user.displayName || "Usuario";
     if (email) email.textContent = user.email;
-
     if (avatar) {
       avatar.textContent = (
         user.displayName?.charAt(0) ||
@@ -119,7 +101,6 @@ function setupAuthListener() {
 // ==========================
 function setupLogoutButton() {
   const logoutBtn = document.getElementById("logoutBtn");
-
   if (logoutBtn) {
     logoutBtn.addEventListener("click", () => {
       localStorage.removeItem("dashboardEmails");
@@ -128,6 +109,21 @@ function setupLogoutButton() {
         .then(() => window.location.href = "../../index.html")
         .catch(err => console.error("Error cerrando sesión:", err));
     });
+  }
+}
+
+// ==========================
+// 🔄 HELPER: marcar como leído en n8n (silencioso, sin await obligatorio)
+// ==========================
+async function marcarLeidoSilencioso(id, accessToken) {
+  try {
+    await fetch("http://localhost:3000/read-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, access_token: accessToken })
+    });
+  } catch (err) {
+    console.warn(`⚠️ No se pudo marcar como leído: ${id}`, err);
   }
 }
 
@@ -191,7 +187,6 @@ function setupRefreshButton() {
   refreshBtn.addEventListener("click", async () => {
     refreshBtn.disabled = true;
     refreshBtn.innerHTML = "Cargando...";
-
     try {
       const user = auth.currentUser;
       if (!user) return;
@@ -238,10 +233,12 @@ function renderEmails() {
     <div class="row w-100">
       <div class="col-12 col-md-6 mb-4">
         <h5 class="text-center mb-3 text-info">📋 IMPORTANTES</h5>
+        <div id="importantesHeader" class="mb-2"></div>
         <div id="importantColumn" class="d-flex flex-column gap-3"></div>
       </div>
       <div class="col-12 col-md-6 mb-4">
         <h5 class="text-center mb-3 text-warning">📅 REUNIONES</h5>
+        <div id="reunionesHeader" class="mb-2"></div>
         <div id="meetingColumn" class="d-flex flex-column gap-3"></div>
       </div>
     </div>
@@ -251,10 +248,11 @@ function renderEmails() {
   let importantHtml = "";
   let meetingHtml = "";
 
-  // Contar faltas para mostrar/ocultar el botón "Responder todos"
   const faltasEmails = emails.filter(m =>
     m.tag === "faltas_justificadas" || m.tag === "faltas_injustificadas"
   );
+  const importantesEmails = emails.filter(m => m.tag === "importantes");
+  const reunionesEmails = emails.filter(m => m.tag === "reunion");
 
   emails.forEach((mail, index) => {
     if (mail.tag === "alertas") return;
@@ -295,34 +293,47 @@ function renderEmails() {
 
     if (mail.tag === "importantes") importantHtml += cardHTML;
     else if (mail.tag === "reunion") meetingHtml += cardHTML;
-    else leftHtml += cardHTML; // faltas_justificadas y faltas_injustificadas
+    else leftHtml += cardHTML;
   });
 
-  // ✅ BOTÓN "RESPONDER TODOS" — solo aparece si hay faltas pendientes
-  const responderTodosBtn = faltasEmails.length > 0 ? `
-    <div class="mb-3 text-center">
-      <button 
-        class="btn btn-danger w-100" 
-        onclick="responderTodos()"
-        id="btnResponderTodos"
-      >
-        <i class="bi bi-reply-all-fill"></i> 
-        Responder todos (${faltasEmails.length})
-      </button>
-    </div>
-  ` : '';
-
-  // ✅ SECCIÓN DE FALTAS con header y botón general
+  // ✅ BOTÓN "RESPONDER TODOS" — faltas (ya existente, ahora en segundo plano)
   leftContainer.innerHTML = faltasEmails.length > 0 ? `
     <div class="mb-3">
       <h5 class="text-center mb-3 text-danger">⚠️ FALTAS</h5>
-      ${responderTodosBtn}
+      <div class="mb-3 text-center">
+        <button 
+          class="btn btn-danger w-100" 
+          onclick="responderTodos()"
+          id="btnResponderTodos"
+        >
+          <i class="bi bi-reply-all-fill"></i>
+          Responder todos (${faltasEmails.length})
+        </button>
+      </div>
       ${leftHtml}
     </div>
   ` : '';
 
   document.getElementById("importantColumn").innerHTML = importantHtml;
   document.getElementById("meetingColumn").innerHTML = meetingHtml;
+
+  // ✅ BOTÓN "REVISAR TODO" — importantes
+  if (importantesEmails.length > 0) {
+    document.getElementById("importantesHeader").innerHTML = `
+      <button class="btn btn-outline-info w-100 btn-sm" onclick="revisarTodo('importantes')">
+        <i class="bi bi-check-all"></i> Revisar todo (${importantesEmails.length})
+      </button>
+    `;
+  }
+
+  // ✅ BOTÓN "REVISAR TODO" — reuniones
+  if (reunionesEmails.length > 0) {
+    document.getElementById("reunionesHeader").innerHTML = `
+      <button class="btn btn-outline-warning w-100 btn-sm" onclick="revisarTodo('reunion')">
+        <i class="bi bi-check-all"></i> Revisar todo (${reunionesEmails.length})
+      </button>
+    `;
+  }
 
   updateCounters(emails);
 }
@@ -332,7 +343,9 @@ function renderEmails() {
 // ==========================
 function updateCounters(emails) {
   setCount("inboxCount", emails.length);
-  setCount("engageCount", emails.length - emails.filter(e => ["importantes", "reunion", "faltas_justificadas", "faltas_injustificadas"].includes(e.tag)).length);
+  setCount("engageCount", emails.length - emails.filter(e =>
+    ["importantes", "reunion", "faltas_justificadas", "faltas_injustificadas"].includes(e.tag)
+  ).length);
 }
 
 function setCount(id, value) {
@@ -367,7 +380,12 @@ window.leerCorreo = function (index) {
   if (!mail) return;
 
   const modal = new bootstrap.Modal(document.getElementById("emailModal"));
-  const colors = { importantes: "bg-info", reunion: "bg-warning", faltas_justificadas: "bg-success", faltas_injustificadas: "bg-danger" };
+  const colors = {
+    importantes: "bg-info",
+    reunion: "bg-warning",
+    faltas_justificadas: "bg-success",
+    faltas_injustificadas: "bg-danger"
+  };
   const tagColor = colors[mail.tag] || "bg-secondary";
 
   document.getElementById("modalSubject").textContent = mail.subject || "Sin asunto";
@@ -385,20 +403,17 @@ window.marcarRevisado = async function (index) {
   const emails = loadEmails();
   if (!emails[index]) return;
 
-  if (emails[index].tag) {
-    const id = emails[index].id;
-    const accessToken = localStorage.getItem("gmail_access_token");
+  const id = emails[index].id;
+  const accessToken = localStorage.getItem("gmail_access_token");
 
-    const response = await fetch("http://localhost:3000/read-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, access_token: accessToken })
-    });
+  // Quitar de pantalla inmediatamente
+  const updated = emails.filter((_, i) => i !== index);
+  saveEmails(updated);
+  localStorage.setItem("dashboardEmails", JSON.stringify(updated));
+  renderEmails();
 
-    const data = await response.json();
-    console.log(data);
-    singleRefresh();
-  }
+  // Marcar en Gmail en segundo plano
+  marcarLeidoSilencioso(id, accessToken);
 };
 
 window.responderCorreo = async function (index) {
@@ -427,7 +442,8 @@ window.responderCorreo = async function (index) {
 
     document.getElementById("modalSubject_r").textContent = emails[index].subject || "Sin asunto";
     document.getElementById("modalFrom_r").textContent = emails[index].from || "Desconocido";
-    document.getElementById("modalDate_r").textContent = emails[index].date ? new Date(emails[index].date).toLocaleString() : "";
+    document.getElementById("modalDate_r").textContent = emails[index].date
+      ? new Date(emails[index].date).toLocaleString() : "";
 
     const tagElement = document.getElementById("modalTag_r");
     tagElement.className = "badge " + tagColor;
@@ -479,64 +495,70 @@ window.responderCorreo = async function (index) {
 };
 
 // ==========================
-// ✅ RESPONDER TODOS — faltas
+// ✅ REVISAR TODO — importantes y reuniones (segundo plano)
 // ==========================
-window.responderTodos = async function () {
+window.revisarTodo = function (tag) {
   const emails = loadEmails();
   const accessToken = localStorage.getItem("gmail_access_token");
 
-  // Filtrar solo faltas pendientes
-  const faltas = emails
-    .map((mail, index) => ({ ...mail, index }))
-    .filter(m => m.tag === "faltas_justificadas" || m.tag === "faltas_injustificadas");
+  const aRevisar = emails.filter(m => m.tag === tag);
+  if (aRevisar.length === 0) return;
 
+  // 1️⃣ Quitar de pantalla INMEDIATAMENTE
+  const restantes = emails.filter(m => m.tag !== tag);
+  saveEmails(restantes);
+  localStorage.setItem("dashboardEmails", JSON.stringify(restantes));
+  renderEmails();
+
+  // 2️⃣ Marcar como leídos en Gmail EN SEGUNDO PLANO (sin await, sin bloquear UI)
+  (async () => {
+    for (const mail of aRevisar) {
+      await marcarLeidoSilencioso(mail.id, accessToken);
+      // Pausa corta para no saturar Gmail API
+      await new Promise(r => setTimeout(r, 300));
+    }
+    console.log(`✅ ${aRevisar.length} correos de '${tag}' marcados como leídos en Gmail`);
+  })();
+};
+
+// ==========================
+// ✅ RESPONDER TODOS — faltas (segundo plano)
+// ==========================
+window.responderTodos = function () {
+  const emails = loadEmails();
+  const accessToken = localStorage.getItem("gmail_access_token");
+
+  const faltas = emails.filter(m =>
+    m.tag === "faltas_justificadas" || m.tag === "faltas_injustificadas"
+  );
   if (faltas.length === 0) return;
 
-  // Deshabilitar botón y mostrar progreso
-  const btn = document.getElementById("btnResponderTodos");
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Enviando 0 / ${faltas.length}...`;
-  }
+  // 1️⃣ Quitar faltas de pantalla INMEDIATAMENTE
+  const restantes = emails.filter(m =>
+    m.tag !== "faltas_justificadas" && m.tag !== "faltas_injustificadas"
+  );
+  saveEmails(restantes);
+  localStorage.setItem("dashboardEmails", JSON.stringify(restantes));
+  renderEmails();
 
-  let enviados = 0;
-  const errores = [];
-
-  for (const mail of faltas) {
-    try {
-      const response = await fetch("http://localhost:3000/send-by-id", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: mail.id, access_token: accessToken })
-      });
-
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      enviados++;
-
-      // Actualizar progreso en el botón
-      if (btn) {
-        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Enviando ${enviados} / ${faltas.length}...`;
+  // 2️⃣ Enviar respuestas y marcar como leídos EN SEGUNDO PLANO
+  (async () => {
+    let enviados = 0;
+    for (const mail of faltas) {
+      try {
+        await fetch("http://localhost:3000/send-by-id", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: mail.id, access_token: accessToken })
+        });
+        enviados++;
+        await new Promise(r => setTimeout(r, 800));
+      } catch (err) {
+        console.warn(`⚠️ Error respondiendo ${mail.id}:`, err);
       }
-
-      // Pequeña pausa entre envíos para no saturar Gmail API
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-    } catch (err) {
-      console.error(`Error respondiendo correo ${mail.id}:`, err);
-      errores.push(mail.subject || mail.id);
     }
-  }
-
-  // Mostrar resultado
-  if (errores.length === 0) {
-    console.log(`✅ ${enviados} correos respondidos y marcados como leídos`);
-  } else {
-    console.warn(`⚠️ ${enviados} enviados, ${errores.length} fallaron:`, errores);
-  }
-
-  // Refrescar dashboard
-  await singleRefresh();
+    console.log(`✅ ${enviados} / ${faltas.length} faltas respondidas y marcadas como leídas`);
+  })();
 };
 
 // coders button
