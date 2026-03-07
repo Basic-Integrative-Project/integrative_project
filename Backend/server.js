@@ -10,6 +10,8 @@ require("dotenv").config();
 
 const app = express();
 app.use(cors());
+
+// ✅ FIX 2 — Aumentar límite de payload para evitar 413 con muchos correos
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
@@ -87,7 +89,8 @@ function ruleBasedFallback(subject, text) {
 // ─────────────────────────────────────────────
 
 async function classifySingleEmail(subject = "", text = "") {
-  const cleanText = text.replace(/\s+/g, " ").trim();
+  // ✅ FIX 2 — Truncar texto para no exceder límites de OpenAI
+  const cleanText = text.replace(/\s+/g, " ").trim().substring(0, 500);
 
   try {
     const response = await openai.chat.completions.create({
@@ -112,7 +115,7 @@ Sin explicación.
           role: "user",
           content: `
 Asunto: ${subject}
-Cuerpo: ${cleanText.substring(0, 1000)}
+Cuerpo: ${cleanText}
 `,
         },
       ],
@@ -168,6 +171,7 @@ app.post("/classify-email", async (req, res) => {
 
 // ─────────────────────────────────────────────
 // 🔹 ENDPOINT BATCH
+// ✅ FIX 2 — Clasificación en lotes de 5 para no saturar OpenAI
 // ─────────────────────────────────────────────
 
 app.post("/classify-emails", async (req, res) => {
@@ -177,22 +181,36 @@ app.post("/classify-emails", async (req, res) => {
     return res.status(400).json({ error: "Se requiere un array de emails" });
   }
 
-  const results = await Promise.all(
-    emails.map(async ({ subject = "", text = "" }) => {
-      try {
-        const tag = await classifySingleEmail(subject, text);
-        return { tag, hidden: tag === "alertas", source: "llm" };
-      } catch (err) {
-        const tag = ruleBasedFallback(subject, text);
-        return {
-          tag,
-          hidden: tag === "alertas",
-          source: "fallback",
-          error: err.message,
-        };
-      }
-    })
-  );
+  const BATCH_SIZE = 5;
+  const results = [];
+
+  for (let i = 0; i < emails.length; i += BATCH_SIZE) {
+    const batch = emails.slice(i, i + BATCH_SIZE);
+
+    const batchResults = await Promise.all(
+      batch.map(async ({ subject = "", text = "" }) => {
+        try {
+          const tag = await classifySingleEmail(subject, text);
+          return { tag, hidden: tag === "alertas", source: "llm" };
+        } catch (err) {
+          const tag = ruleBasedFallback(subject, text);
+          return {
+            tag,
+            hidden: tag === "alertas",
+            source: "fallback",
+            error: err.message,
+          };
+        }
+      })
+    );
+
+    results.push(...batchResults);
+
+    // Pausa entre lotes para no saturar OpenAI rate limits
+    if (i + BATCH_SIZE < emails.length) {
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
 
   res.json(results);
 });
@@ -226,6 +244,7 @@ const pool = mysql.createPool({
 // ─────────────────────────────────────────────
 // 🔹 CODERS API
 // ─────────────────────────────────────────────
+
 // 1. OBTENER CODERS (CON FILTRO POR DOCUMENTO PARA EL BUSCADOR)
 app.get("/api/coders", (req, res) => {
   const documentoBusqueda = req.query.document;
@@ -264,7 +283,7 @@ app.get("/api/coders/:id", (req, res) => {
     INNER JOIN shift s ON c.shift_id = s.id
     LEFT JOIN grades g ON c.id = g.coder_id 
     WHERE c.id = ?`;
-  
+
   pool.query(sql, [req.params.id], (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
     res.status(200).json(result[0]);
@@ -284,7 +303,7 @@ app.get("/appointment/:id_coder", (req, res) => {
 app.post("/appointment", (req, res) => {
   const { id_coder, subject, professional, date } = req.body;
   const sql = "INSERT INTO appointment (id_coder, subject, professional, date, state) VALUES (?, ?, ?, ?, 0)";
-  
+
   pool.query(sql, [id_coder, subject, professional, date], (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
     res.status(201).json({ id: result.insertId, ...req.body, state: 0 });
@@ -294,11 +313,11 @@ app.post("/appointment", (req, res) => {
 // 5. GUARDAR HISTORIA Y FINALIZAR CITA (CAMBIA ESTADO A 1)
 app.post("/history_coder", (req, res) => {
   const { id_appointment, objetive, tracking, goals } = req.body;
-  
+
   const sqlH = "INSERT INTO history_coder (id_appointment, objetive, tracking, goals) VALUES (?, ?, ?, ?)";
   pool.query(sqlH, [id_appointment, objetive, tracking, goals], (err) => {
     if (err) return res.status(500).json({ error: err.message });
-    
+
     const sqlU = "UPDATE appointment SET state = 1 WHERE id = ?";
     pool.query(sqlU, [id_appointment], (errU) => {
       if (errU) return res.status(500).json({ error: errU.message });
@@ -317,7 +336,7 @@ app.get("/history_coder/:id_app", (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// 🔹 N8N WEBHOOK
+// 🔹 N8N WEBHOOKS
 // ─────────────────────────────────────────────
 
 app.post("/send-by-id", async (req, res) => {
@@ -326,7 +345,6 @@ app.post("/send-by-id", async (req, res) => {
       "https://n8n.andrescortes.dev/webhook/send-by-id",
       req.body
     );
-
     res.json(response.data);
   } catch (error) {
     res.status(500).json({ error: "Error enviando a n8n" });
@@ -339,7 +357,6 @@ app.post("/read-email", async (req, res) => {
       "https://n8n.andrescortes.dev/webhook/read-email",
       req.body
     );
-
     res.json(response.data);
   } catch (error) {
     res.status(500).json({ error: "Error enviando a n8n" });
@@ -352,7 +369,6 @@ app.post("/send-by-From", async (req, res) => {
       "https://n8n.andrescortes.dev/webhook/send-by-From",
       req.body
     );
-
     res.json(response.data);
   } catch (error) {
     res.status(500).json({ error: error.message, details: error.response?.data });

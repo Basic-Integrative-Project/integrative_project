@@ -560,3 +560,12 @@ Backend/.env
 # Ignore the .vscode folder inside Backend
 .vscode
 ```
+
+
+## Summary of actual risk
+| Scenario               | Mail      | Risk      | Fix                     |
+|------------------------|-----------|-----------|-------------------------|
+| Normal user            | 5-15 ✅   | None      | -                       |
+| Active user            | 15-30 ⚠️  | Slow      | maxResults=10           |
+| User with full inbox   | 30-50+ 🔴 | Failure   | maxResults=10 + batch   |
+| classifyLong session   | (+1h)     | any 🔴    | Token expired (Fix 3)   |

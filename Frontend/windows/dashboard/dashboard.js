@@ -47,18 +47,65 @@ function parseEmailsFromN8n(data) {
   return [];
 }
 
+// ✅ FIX 3 — Renovar token si está por vencer (más de 50 min de vida)
+async function getValidAccessToken() {
+  try {
+    const stored = localStorage.getItem("gmail_access_token");
+    const tokenAge = localStorage.getItem("gmail_token_time");
+    const now = Date.now();
+
+    if (tokenAge && (now - parseInt(tokenAge)) > 3000000) {
+      console.log("🔄 Token próximo a vencer, renovando...");
+      const provider = new firebase.auth.GoogleAuthProvider();
+      provider.addScope('https://www.googleapis.com/auth/gmail.modify');
+      provider.addScope('https://www.googleapis.com/auth/gmail.send');
+      const reauth = await auth.currentUser.reauthenticateWithPopup(provider);
+      const newToken = reauth.credential.accessToken;
+      localStorage.setItem("gmail_access_token", newToken);
+      localStorage.setItem("gmail_token_time", now.toString());
+      return newToken;
+    }
+
+    return stored;
+  } catch (err) {
+    console.warn("⚠️ No se pudo renovar token, usando el existente:", err);
+    return localStorage.getItem("gmail_access_token");
+  }
+}
+
+// ==========================
+// 🔄 HELPER: marcar como leído en Gmail (silencioso, sin bloquear UI)
+// ==========================
+async function marcarLeidoSilencioso(id, accessToken) {
+  try {
+    await fetch("http://localhost:3000/read-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, access_token: accessToken })
+    });
+  } catch (err) {
+    console.warn(`⚠️ No se pudo marcar como leído: ${id}`, err);
+  }
+}
+
 // ==========================
 // 🔥 INICIALIZAR FIREBASE
 // ==========================
 async function initApp() {
   try {
     const firebaseConfig = await loadFirebaseConfig();
-    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+
     window.auth = firebase.auth();
     console.log("✅ Firebase inicializado");
+
     setupAuthListener();
     setupLogoutButton();
     setupRefreshButton();
+
   } catch (error) {
     console.error("Error inicializando Firebase:", error);
   }
@@ -105,6 +152,7 @@ function setupLogoutButton() {
     logoutBtn.addEventListener("click", () => {
       localStorage.removeItem("dashboardEmails");
       localStorage.removeItem("gmail_access_token");
+      localStorage.removeItem("gmail_token_time");
       auth.signOut()
         .then(() => window.location.href = "../../index.html")
         .catch(err => console.error("Error cerrando sesión:", err));
@@ -113,25 +161,17 @@ function setupLogoutButton() {
 }
 
 // ==========================
-// 🔄 HELPER: marcar como leído en n8n (silencioso, sin await obligatorio)
-// ==========================
-async function marcarLeidoSilencioso(id, accessToken) {
-  try {
-    await fetch("http://localhost:3000/read-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, access_token: accessToken })
-    });
-  } catch (err) {
-    console.warn(`⚠️ No se pudo marcar como leído: ${id}`, err);
-  }
-}
-
-// ==========================
 // 🔄 HELPER INTERNO: fetch + classify + render
 // ==========================
 async function fetchClassifyAndRender(user) {
-  const accessToken = localStorage.getItem("gmail_access_token");
+  // ✅ FIX 4 — Indicador de carga mientras sincroniza
+  const left = document.getElementById("emailList");
+  const center = document.getElementById("emailList2");
+  if (left) left.innerHTML = '<p class="text-muted text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Sincronizando...</p>';
+  if (center) center.innerHTML = '<p class="text-muted text-center py-3">Cargando correos...</p>';
+
+  // ✅ FIX 3 — Usar token válido (renueva si es necesario)
+  const accessToken = await getValidAccessToken();
 
   const res = await fetch("https://n8n.andrescortes.dev/webhook/get-mails", {
     method: "POST",
@@ -142,6 +182,7 @@ async function fetchClassifyAndRender(user) {
   const data = await res.json();
   const emails = parseEmailsFromN8n(data);
 
+  // ✅ FIX 2 — Truncar texto antes de enviar a clasificar
   const batchRes = await fetch("http://localhost:3000/classify-emails", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -296,18 +337,13 @@ function renderEmails() {
     else leftHtml += cardHTML;
   });
 
-  // ✅ BOTÓN "RESPONDER TODOS" — faltas (ya existente, ahora en segundo plano)
+  // ✅ SECCIÓN FALTAS con botón Responder todos
   leftContainer.innerHTML = faltasEmails.length > 0 ? `
     <div class="mb-3">
       <h5 class="text-center mb-3 text-danger">⚠️ FALTAS</h5>
       <div class="mb-3 text-center">
-        <button 
-          class="btn btn-danger w-100" 
-          onclick="responderTodos()"
-          id="btnResponderTodos"
-        >
-          <i class="bi bi-reply-all-fill"></i>
-          Responder todos (${faltasEmails.length})
+        <button class="btn btn-danger w-100" onclick="responderTodos()" id="btnResponderTodos">
+          <i class="bi bi-reply-all-fill"></i> Responder todos (${faltasEmails.length})
         </button>
       </div>
       ${leftHtml}
@@ -320,7 +356,7 @@ function renderEmails() {
   // ✅ BOTÓN "REVISAR TODO" — importantes
   if (importantesEmails.length > 0) {
     document.getElementById("importantesHeader").innerHTML = `
-      <button class="btn btn-outline-info w-100 btn-sm" onclick="revisarTodo('importantes')">
+      <button class="btn btn-outline-info w-100 btn-sm mb-2" onclick="revisarTodo('importantes')">
         <i class="bi bi-check-all"></i> Revisar todo (${importantesEmails.length})
       </button>
     `;
@@ -329,7 +365,7 @@ function renderEmails() {
   // ✅ BOTÓN "REVISAR TODO" — reuniones
   if (reunionesEmails.length > 0) {
     document.getElementById("reunionesHeader").innerHTML = `
-      <button class="btn btn-outline-warning w-100 btn-sm" onclick="revisarTodo('reunion')">
+      <button class="btn btn-outline-warning w-100 btn-sm mb-2" onclick="revisarTodo('reunion')">
         <i class="bi bi-check-all"></i> Revisar todo (${reunionesEmails.length})
       </button>
     `;
@@ -404,7 +440,7 @@ window.marcarRevisado = async function (index) {
   if (!emails[index]) return;
 
   const id = emails[index].id;
-  const accessToken = localStorage.getItem("gmail_access_token");
+  const accessToken = await getValidAccessToken();
 
   // Quitar de pantalla inmediatamente
   const updated = emails.filter((_, i) => i !== index);
@@ -420,7 +456,7 @@ window.responderCorreo = async function (index) {
   const emails = loadEmails();
   if (!emails[index]) return;
 
-  const accessToken = localStorage.getItem("gmail_access_token");
+  const accessToken = await getValidAccessToken();
 
   if (emails[index].tag === "faltas_injustificadas" || emails[index].tag === "faltas_justificadas") {
     const id = emails[index].id;
@@ -472,7 +508,7 @@ window.responderCorreo = async function (index) {
     });
 
     async function sendMessage(message, index) {
-      const accessToken = localStorage.getItem("gmail_access_token");
+      const accessToken = await getValidAccessToken();
 
       const response = await fetch("http://localhost:3000/send-by-From", {
         method: "POST",
@@ -497,9 +533,9 @@ window.responderCorreo = async function (index) {
 // ==========================
 // ✅ REVISAR TODO — importantes y reuniones (segundo plano)
 // ==========================
-window.revisarTodo = function (tag) {
+window.revisarTodo = async function (tag) {
   const emails = loadEmails();
-  const accessToken = localStorage.getItem("gmail_access_token");
+  const accessToken = await getValidAccessToken();
 
   const aRevisar = emails.filter(m => m.tag === tag);
   if (aRevisar.length === 0) return;
@@ -510,11 +546,10 @@ window.revisarTodo = function (tag) {
   localStorage.setItem("dashboardEmails", JSON.stringify(restantes));
   renderEmails();
 
-  // 2️⃣ Marcar como leídos en Gmail EN SEGUNDO PLANO (sin await, sin bloquear UI)
+  // 2️⃣ Marcar como leídos en Gmail EN SEGUNDO PLANO
   (async () => {
     for (const mail of aRevisar) {
       await marcarLeidoSilencioso(mail.id, accessToken);
-      // Pausa corta para no saturar Gmail API
       await new Promise(r => setTimeout(r, 300));
     }
     console.log(`✅ ${aRevisar.length} correos de '${tag}' marcados como leídos en Gmail`);
@@ -524,9 +559,9 @@ window.revisarTodo = function (tag) {
 // ==========================
 // ✅ RESPONDER TODOS — faltas (segundo plano)
 // ==========================
-window.responderTodos = function () {
+window.responderTodos = async function () {
   const emails = loadEmails();
-  const accessToken = localStorage.getItem("gmail_access_token");
+  const accessToken = await getValidAccessToken();
 
   const faltas = emails.filter(m =>
     m.tag === "faltas_justificadas" || m.tag === "faltas_injustificadas"
@@ -541,7 +576,7 @@ window.responderTodos = function () {
   localStorage.setItem("dashboardEmails", JSON.stringify(restantes));
   renderEmails();
 
-  // 2️⃣ Enviar respuestas y marcar como leídos EN SEGUNDO PLANO
+  // 2️⃣ Enviar respuestas EN SEGUNDO PLANO con pausa entre cada una
   (async () => {
     let enviados = 0;
     for (const mail of faltas) {

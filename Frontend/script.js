@@ -1,11 +1,9 @@
 // 🔹 OBTENER CONFIGURACIÓN DESDE EL BACKEND
 async function loadFirebaseConfig() {
   const response = await fetch("http://localhost:3000/firebase-config");
-
   if (!response.ok) {
     throw new Error("No se pudo obtener la configuración de Firebase");
   }
-
   return await response.json();
 }
 
@@ -25,7 +23,6 @@ async function initApp() {
     window.provider.addScope('https://www.googleapis.com/auth/gmail.send');
 
     console.log("✅ Firebase inicializado");
-
     setupLogin();
 
   } catch (error) {
@@ -36,6 +33,30 @@ async function initApp() {
 initApp();
 
 let currentUser = null;
+
+// ✅ FIX 3 — Guardar token con timestamp y renovar si está por vencer
+async function getValidAccessToken() {
+  try {
+    const stored = localStorage.getItem("gmail_access_token");
+    const tokenAge = localStorage.getItem("gmail_token_time");
+    const now = Date.now();
+
+    // Token dura 1 hora (3600000ms), renovar si tiene más de 50 minutos
+    if (tokenAge && (now - parseInt(tokenAge)) > 3000000) {
+      console.log("🔄 Token próximo a vencer, renovando...");
+      const reauth = await auth.currentUser.reauthenticateWithPopup(window.provider);
+      const newToken = reauth.credential.accessToken;
+      localStorage.setItem("gmail_access_token", newToken);
+      localStorage.setItem("gmail_token_time", now.toString());
+      return newToken;
+    }
+
+    return stored;
+  } catch (err) {
+    console.warn("⚠️ No se pudo renovar token, usando el existente:", err);
+    return localStorage.getItem("gmail_access_token");
+  }
+}
 
 // ✅ HELPER: parsea la respuesta de n8n sin importar la estructura que devuelva
 function parseEmailsFromN8n(data) {
@@ -75,9 +96,10 @@ function setupLogin() {
       const result = await auth.signInWithPopup(provider);
       currentUser = result.user;
 
-      // Capturar y guardar el access_token de Gmail
+      // ✅ FIX 3 — Guardar token + timestamp
       const accessToken = result.credential.accessToken;
       localStorage.setItem("gmail_access_token", accessToken);
+      localStorage.setItem("gmail_token_time", Date.now().toString());
 
       await db.collection("users").doc(currentUser.uid).set({
         email: currentUser.email,
@@ -120,6 +142,7 @@ function setupLogin() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // ✅ FIX 2 — truncar texto antes de enviar al backend
           emails: emails.map(m => ({
             subject: m.subject || "",
             text: (m.text || "").substring(0, 500)
