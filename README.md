@@ -142,28 +142,61 @@ In short, this is an **AI-powered email classification and management platform**
 ## Project Structure
 
 ```
-INTEGRATIVE_PROJECT
-|
-|_Backend
-  |_server.js
-  |_.env-example
-|
-|_Frontend
-  |_index.html
-  |_script.js
-  |_windows
-    |_coders
-      |_index.html
-      |_main.js
-      |_profile.js
-      |_coder_profile.html
-    |_dashboard
-      |_dashboard.html
-      |_style.css
-      |_dashboard.js
-  |_.gitignore
-  |_README.md
-
+integrative_project/
+├── Backend/
+│   ├── config/
+│   │   ├── db.js                  MySQL connection pool
+│   │   └── openai.js              OpenAI client initialization
+│   ├── controllers/
+│   │   ├── classifierController.js  Single and batch classification handlers
+│   │   ├── aiController.js          Reply suggestion and meeting extraction handlers
+│   │   ├── codersController.js      Coders list and profile handlers
+│   │   ├── appointmentsController.js  Appointments and clinical history handlers
+│   │   └── n8nController.js         n8n webhook proxy handlers
+│   ├── routes/
+│   │   ├── generalRoutes.js         Health check, test, and Firebase config routes
+│   │   ├── classifierRoutes.js      Email classification routes
+│   │   ├── aiRoutes.js              AI feature routes
+│   │   ├── codersRoutes.js          Coders and appointments routes
+│   │   └── n8nRoutes.js             n8n proxy routes
+│   ├── services/
+│   │   ├── classifierService.js     Classification logic with OpenAI and regex fallback
+│   │   └── aiService.js             Reply suggestion and meeting extraction logic
+│   ├── server.js                    Express entry point
+│   ├── package.json
+│   └── .env-example
+│
+└── Frontend/
+    ├── index.html                   Login page
+    ├── js/
+    │   ├── login.js                 Login flow orchestration
+    │   └── modules/
+    │       ├── firebase.js          Firebase initialization module
+    │       ├── tokenManager.js      OAuth token storage and renewal
+    │       ├── emailCache.js        In-memory and localStorage email cache
+    │       ├── n8nParser.js         n8n response shape normalizer
+    │       └── classifier.js        Batch classification API call and color mapping
+    ├── assets/
+    │   └── logo/
+    └── windows/
+        ├── css/
+        │   ├── dashboard.css
+        │   ├── coders.css
+        │   └── coder_profile.css
+        ├── dashboard/
+        │   ├── dashboard.html
+        │   ├── style.css
+        │   ├── authSetup.js         Firebase auth listener and logout
+        │   ├── emailFetcher.js      n8n email fetch and reclassification
+        │   ├── emailRenderer.js     Dashboard card rendering
+        │   ├── emailActions.js      Read, reply, mark reviewed, category change
+        │   ├── calendarScheduler.js  Google Calendar meeting scheduler
+        │   └── dashboard.js         Dashboard entry point
+        └── coders/
+            ├── index.html
+            ├── coder_profile.html
+            ├── codersList.js        Coders table fetch and render
+            └── coderProfile.js      Profile, appointments, and clinical history
 ```
 
 ## Project Structure ``Frontend``
@@ -487,10 +520,11 @@ node server.js
 Once started, you can access the application at: http://localhost:3000
 
 ```c
-Servidor en http://localhost:3000
-📋 Categorías: reunion, faltas_justificadas, faltas_injustificadas, importantes, alertas
-⚡ Node: v22.21.0
+Server running at http://localhost:3000
+Categories: reunion, faltas_justificadas, faltas_injustificadas, importantes, alertas
+Node: v22.22.0
 ```
+
 ### Email Categories
 | Category                | Hidden? | Description                       |
 | ----------------------- | ------- | --------------------------------- |
